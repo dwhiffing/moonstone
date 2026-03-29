@@ -8,7 +8,6 @@ export function LobbyModal() {
     lobbyPhase,
     gameCode,
     error,
-    turnWarning,
     closeLobby,
     hostGame,
     joinGame,
@@ -19,12 +18,6 @@ export function LobbyModal() {
     <Modal show={showLobbyModal} onClose={closeLobby}>
       <div className="flex flex-col gap-6 bg-surface rounded-lg shadow-xl w-[calc(100vw-40px)] min-w-72 max-w-sm p-6">
         <h2 className="text-2xl font-bold text-center">Multiplayer</h2>
-
-        {turnWarning && (
-          <p className="text-yellow-400 text-xs text-center opacity-80">
-            ⚠ {turnWarning}
-          </p>
-        )}
 
         {lobbyPhase === 'menu' && (
           <div className="flex flex-col gap-3">
@@ -72,7 +65,11 @@ export function LobbyModal() {
               maxLength={4}
               placeholder="XXXX"
               value={inputCode}
-              onChange={(e) => setInputCode(e.target.value.toUpperCase())}
+              onChange={(e) =>
+                setInputCode(
+                  e.target.value.replace(/[^A-Z]/g, '').toUpperCase(),
+                )
+              }
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && inputCode.length === 4)
                   joinGame(inputCode)

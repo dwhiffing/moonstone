@@ -77,7 +77,6 @@ export interface MultiplayerState {
   gameCode: string | null
   peerConnected: boolean
   error: string | null
-  turnWarning: string | null
 }
 
 interface MultiplayerStore extends MultiplayerState {
@@ -110,8 +109,7 @@ export const setOnGameStart = (
 }
 
 function generateCode(): string {
-  // Avoid chars that look alike: I, O, 0, 1
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ'
   return Array.from(
     { length: 4 },
     () => chars[Math.floor(Math.random() * chars.length)],
@@ -134,16 +132,12 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
   gameCode: null,
   peerConnected: false,
   error: null,
-  turnWarning: null,
 
   openLobby: () =>
     set({
       showLobbyModal: true,
       lobbyPhase: 'menu',
       error: getTurnConfigError(),
-      turnWarning: isTurnConfigured()
-        ? null
-        : 'TURN relay is not configured. Players behind strict firewalls may not be able to connect.',
     }),
 
   closeLobby: () => {

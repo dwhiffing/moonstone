@@ -32,10 +32,7 @@ jobs:
           git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
 
       - name: Deploy
-        run: |
-          echo "VITE_TURN_USERNAME set: $([ -n "$VITE_TURN_USERNAME" ] && echo YES || echo NO)"
-          echo "VITE_TURN_CREDENTIAL set: $([ -n "$VITE_TURN_CREDENTIAL" ] && echo YES || echo NO)"
-          pnpm run deploy
+        run: pnpm run deploy
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VITE_TURN_USERNAME: ${{ secrets.VITE_TURN_USERNAME }}
