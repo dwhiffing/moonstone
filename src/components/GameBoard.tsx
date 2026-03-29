@@ -32,9 +32,6 @@ function App() {
 				<Header />
 
 				<div className="flex flex-col justify-center h-full absolute inset-0">
-					<div className="absolute inset-0 flex justify-center items-center">
-						<Pile pileIndex={0} pileType="deck" />
-					</div>
 					<div className="absolute top-0 inset-x-0 transform -translate-y-2/5 flex justify-center items-center">
 						<Pile pileIndex={1} pileType="hand" />
 					</div>
@@ -54,7 +51,7 @@ function App() {
 									pileType="discard"
 								/>
 							))}
-							<div className="pile" />
+							<Pile pileIndex={0} pileType="deck" />
 							{[2, 3].map((index) => (
 								<Pile
 									key={index}

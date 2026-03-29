@@ -142,12 +142,19 @@
     gap: calc(var(--base-gap));
   }
 
-  .pile {
+  .pile.tableau, .pile.discard {
     @apply border-[0.15vw] border-surface-pile-border bg-surface-pile relative pointer-events-none;
   }
 
-  .pile.hand, .pile.deck {
+  .pile.deck, .pile.hand {
     @apply invisible;
+  }
+  .pile.deck p {
+    font-size: calc(var(--base-size) * .3) ;
+    -webkit-text-stroke: calc(var(--base-size) * .08)  #e74c3c;
+    paint-order: stroke fill;
+    @apply visible;
+    pointer-events: none;
   }
 
   .card {
