@@ -41,8 +41,10 @@ export const useGameStore = create<GameStore>((set, get) => {
 		dealTimeout = setTimeout(() => {
 			set({ dealPhase: 1 });
 			dealTimeout = setTimeout(
-				() => set({ dealPhase: -1 }),
-				cards.length * 10 + CARD_TRANSITION_DURATION,
+				() => {
+					set({ dealPhase: -1, cards: sortHandCards(get().cards) });
+				},
+				(CARD_TRANSITION_DURATION / 2) * 17,
 			);
 		}, 500);
 	};
@@ -218,7 +220,6 @@ const moveCard = (
 	if (!isValid) return set({ cards, activeCard: null });
 
 	const sourcePileIndex = activeCard.pileIndex;
-	const sourceCardPileIndex = activeCard.cardPileIndex;
 	const playerHandPile = 2 + SUIT_NAMES.length * 3;
 	const deckTopCard = getCardPile(0, cards).at(-1) ?? null;
 
@@ -240,20 +241,20 @@ const moveCard = (
 		}),
 	});
 
-	// Second set: after transition, draw deck top card into vacated hand slot
+	// Second set: after transition, draw deck top card into its sorted hand position
 	if (sourcePileIndex === playerHandPile && deckTopCard) {
 		setTimeout(() => {
 			const current = get().cards;
+			const handCards = getCardPile(playerHandPile, current);
+			const merged = [...handCards, deckTopCard].sort((a, b) =>
+				a.suit !== b.suit ? a.suit - b.suit : a.rank - b.rank,
+			);
 			set({
-				cards: current.map((card) =>
-					card.id === deckTopCard.id
-						? {
-								...card,
-								pileIndex: playerHandPile,
-								cardPileIndex: sourceCardPileIndex,
-							}
-						: card,
-				),
+				cards: current.map((card) => {
+					const newIdx = merged.findIndex((c) => c.id === card.id);
+					if (newIdx === -1) return card;
+					return { ...card, pileIndex: playerHandPile, cardPileIndex: newIdx };
+				}),
 			});
 		}, CARD_TRANSITION_DURATION);
 	}
@@ -287,6 +288,23 @@ const isAscending = (cards: CardType[]) =>
 	cards.filter((card, i) =>
 		cards[i + 1] ? card.rank === cards[i + 1].rank - 1 : true,
 	).length === cards.length;
+
+const sortHandCards = (cards: CardType[]): CardType[] => {
+	let result = cards;
+	const handPileIndices = [1, 2 + SUIT_NAMES.length * 3];
+	for (const handPileIndex of handPileIndices) {
+		const handCards = getCardPile(handPileIndex, result);
+		const sorted = [...handCards].sort((a, b) =>
+			a.suit !== b.suit ? a.suit - b.suit : a.rank - b.rank,
+		);
+		result = result.map((card) => {
+			const sortedIndex = sorted.findIndex((c) => c.id === card.id);
+			if (sortedIndex === -1) return card;
+			return { ...card, cardPileIndex: sortedIndex };
+		});
+	}
+	return result;
+};
 
 const getCardPile = (pileIndex: number, cards: CardType[]) => {
 	const pile = cards.filter((c) => c.pileIndex === pileIndex);
