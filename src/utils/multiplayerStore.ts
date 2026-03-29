@@ -1,5 +1,39 @@
-import Peer, { type DataConnection } from 'peerjs'
+import Peer, { type DataConnection, type PeerOptions } from 'peerjs'
 import { create } from 'zustand'
+
+function buildPeerConfig(): PeerOptions {
+  const iceServers: RTCIceServer[] = [
+    { urls: 'stun:stun.l.google.com:19302' },
+  ]
+
+  const turnUrl = import.meta.env.VITE_TURN_URL as string | undefined
+  const turnUsername = import.meta.env.VITE_TURN_USERNAME as string | undefined
+  const turnCredential = import.meta.env.VITE_TURN_CREDENTIAL as
+    | string
+    | undefined
+
+  const provided = [turnUrl, turnUsername, turnCredential].filter(Boolean)
+
+  if (provided.length > 0 && provided.length < 3) {
+    console.warn(
+      '[PeerJS] Partial TURN configuration detected. ' +
+        'Set all three of VITE_TURN_URL, VITE_TURN_USERNAME, and VITE_TURN_CREDENTIAL to enable TURN relay.',
+    )
+  } else if (
+    turnUrl &&
+    turnUsername &&
+    turnCredential &&
+    /^turns?:/.test(turnUrl)
+  ) {
+    iceServers.push({ urls: turnUrl, username: turnUsername, credential: turnCredential })
+  } else if (turnUrl && !/^turns?:/.test(turnUrl)) {
+    console.warn(
+      `[PeerJS] VITE_TURN_URL "${turnUrl}" does not start with "turn:" or "turns:". TURN server will not be used.`,
+    )
+  }
+
+  return { config: { iceServers } }
+}
 
 export type MoveData =
   | { phase: 'play'; cardId: number; targetPileIndex: number }
@@ -95,7 +129,7 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
     const code = generateCode()
     set({ lobbyPhase: 'hosting', gameCode: code, error: null })
 
-    peer = new Peer(peerIdFromCode(code))
+    peer = new Peer(peerIdFromCode(code), buildPeerConfig())
 
     peer.on('connection', (connection) => {
       // Only accept one connection
@@ -145,7 +179,7 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
     }
     set({ lobbyPhase: 'joining', error: null })
 
-    peer = new Peer()
+    peer = new Peer(buildPeerConfig())
 
     peer.on('open', () => {
       conn = peer!.connect(peerIdFromCode(code), { reliable: true })
