@@ -80,17 +80,19 @@ export const useGameStore = create<GameStore>((set, get) => {
 		onMouseDown: ({ clientX, clientY }: MouseParams) => {
 			const { activeCard, cards } = get();
 			const clickedCard = getCardFromPoint(clientX, clientY, get().cards);
+			const pickableCard =
+				clickedCard && isCardPickable(clickedCard) ? clickedCard : undefined;
 
 			const isDoubleClick =
-				clickedCard?.id != null &&
-				clickedCard.id === lastClickedCardId &&
+				pickableCard?.id != null &&
+				pickableCard.id === lastClickedCardId &&
 				Date.now() - cursorDownAt < 350;
 
-			if (isDoubleClick && clickedCard) {
-				const pileIndex = findValidPile(clickedCard, cards);
+			if (isDoubleClick && pickableCard) {
+				const pileIndex = findValidPile(pickableCard, cards);
 				if (pileIndex !== null) {
 					lastDoubleClickAt = Date.now();
-					moveCard(clickedCard, pileIndex, get, set);
+					moveCard(pickableCard, pileIndex, get, set);
 					return;
 				}
 			}
@@ -101,18 +103,18 @@ export const useGameStore = create<GameStore>((set, get) => {
 			}
 
 			if (
-				clickedCard
-				// clickedCard?.cardPileIndex ===
-				// 	getCardPile(clickedCard.pileIndex, cards).length - 1 &&
+				pickableCard
+				// pickableCard?.cardPileIndex ===
+				// 	getCardPile(pickableCard.pileIndex, cards).length - 1 &&
 			) {
-				set({ activeCard: activeCard ? null : clickedCard });
+				set({ activeCard: activeCard ? null : pickableCard });
 			}
 
 			cursorDownPos = { x: clientX, y: clientY };
 			cursorDownAt = Date.now();
-			lastClickedCardId = clickedCard?.id ?? null;
-			if (clickedCard) {
-				const { x: cardX, y: cardY } = getCardPilePosition(clickedCard);
+			lastClickedCardId = pickableCard?.id ?? null;
+			if (pickableCard) {
+				const { x: cardX, y: cardY } = getCardPilePosition(pickableCard);
 				cursorDelta = { x: clientX - cardX, y: clientY - cardY };
 				set({ cursorState: { mouseX: cardX, mouseY: cardY, pressed: true } });
 			}
@@ -215,17 +217,46 @@ const moveCard = (
 
 	if (!isValid) return set({ cards, activeCard: null });
 
+	const sourcePileIndex = activeCard.pileIndex;
+	const sourceCardPileIndex = activeCard.cardPileIndex;
+	const playerHandPile = 2 + SUIT_NAMES.length * 3;
+	const deckTopCard = getCardPile(0, cards).at(-1) ?? null;
+
+	// First set: move played card to target pile
 	set({
 		activeCard: null,
 		cards: cards.map((card) => {
-			let cardPileIndex = movingCards.findIndex((c) => c.id === card.id);
-			if (cardPileIndex === -1) return card;
-
-			if (targetCard) cardPileIndex += targetCard.cardPileIndex + 1;
-
-			return { ...card, pileIndex: pileIndex, cardPileIndex };
+			const cardPileIndex = movingCards.findIndex((c) => c.id === card.id);
+			if (cardPileIndex !== -1) {
+				return {
+					...card,
+					pileIndex: pileIndex,
+					cardPileIndex: targetCard
+						? cardPileIndex + targetCard.cardPileIndex + 1
+						: cardPileIndex,
+				};
+			}
+			return card;
 		}),
 	});
+
+	// Second set: after transition, draw deck top card into vacated hand slot
+	if (sourcePileIndex === playerHandPile && deckTopCard) {
+		setTimeout(() => {
+			const current = get().cards;
+			set({
+				cards: current.map((card) =>
+					card.id === deckTopCard.id
+						? {
+								...card,
+								pileIndex: playerHandPile,
+								cardPileIndex: sourceCardPileIndex,
+							}
+						: card,
+				),
+			});
+		}, CARD_TRANSITION_DURATION);
+	}
 };
 
 const getCardFromPoint = (x: number, y: number, cards: CardType[]) => {
@@ -280,4 +311,16 @@ const findValidPile = (card: CardType, cards: CardType[]): number | null => {
 	}
 
 	return null;
+};
+
+// Piles the local player owns and can pick cards from:
+//   pile 17 = player hand, piles 7–11 = discard
+// Disabled: deck (0), opponent hand (1), opponent tableau (2–6), player's own tableau (12–16)
+const isCardPickable = (card: CardType): boolean => {
+	const s = SUIT_NAMES.length;
+	if (card.pileIndex === 0) return false; // deck
+	if (card.pileIndex === 1) return false; // opponent hand
+	if (card.pileIndex >= 2 && card.pileIndex < 2 + s) return false; // opponent tableau
+	if (card.pileIndex >= 2 + s * 2 && card.pileIndex < 2 + s * 3) return false; // player's own tableau (already played)
+	return true;
 };
