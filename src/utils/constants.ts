@@ -1,5 +1,4 @@
 export const DEV_MODE = false;
-export const PILE_COUNT = 11;
 export const HAND_SIZE = 8;
 export const CARD_TRANSITION_DURATION = 300;
 export const SUIT_COLORS: string[] = [

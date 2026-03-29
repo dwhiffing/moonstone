@@ -1,12 +1,6 @@
 import { create } from "zustand";
 import { getCardPilePosition, getPileSize } from ".";
-import {
-	CARD_TRANSITION_DURATION,
-	CARDS,
-	NUM_RANKS,
-	PILE_COUNT,
-	SUIT_NAMES,
-} from "./constants";
+import { CARD_TRANSITION_DURATION, CARDS, SUIT_NAMES } from "./constants";
 import { seededShuffle } from "./seededShuffle";
 
 type MouseParams = { clientX: number; clientY: number };
@@ -107,10 +101,9 @@ export const useGameStore = create<GameStore>((set, get) => {
 			}
 
 			if (
-				clickedCard &&
+				clickedCard
 				// clickedCard?.cardPileIndex ===
 				// 	getCardPile(clickedCard.pileIndex, cards).length - 1 &&
-				!isPileComplete(clickedCard.pileIndex, cards)
 			) {
 				set({ activeCard: activeCard ? null : clickedCard });
 			}
@@ -269,13 +262,9 @@ const getCardPile = (pileIndex: number, cards: CardType[]) => {
 	return pile.sort((a, b) => a.cardPileIndex - b.cardPileIndex);
 };
 
-export const isPileComplete = (pileIndex: number, cards: CardType[]): boolean =>
-	getCardPile(pileIndex, cards).length === NUM_RANKS &&
-	pileIndex > PILE_COUNT - 1;
-
 const findValidPile = (card: CardType, cards: CardType[]): number | null => {
 	for (let i = 0; i < SUIT_NAMES.length; i++) {
-		const pileIndex = PILE_COUNT + i;
+		const pileIndex = i;
 
 		const foundationCards = getCardPile(pileIndex, cards);
 		const topCard = foundationCards.at(-1);
@@ -288,15 +277,6 @@ const findValidPile = (card: CardType, cards: CardType[]): number | null => {
 		if (suitsMatch && ranksAdjacent) {
 			return pileIndex;
 		}
-	}
-
-	if (card.rank === 0 || card.rank === 9) {
-		for (let i = 0; i < SUIT_NAMES.length; i++) {
-			if (getCardPile(PILE_COUNT + i, cards).length === 0) {
-				return PILE_COUNT + i;
-			}
-		}
-		return null;
 	}
 
 	return null;

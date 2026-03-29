@@ -38,31 +38,33 @@ function App() {
 						<Pile pileIndex={1} pileType="hand" />
 					</div>
 
-					{/* <div className="min-h-[22vw] w-full flex gap-board items-start justify-center">
-						{suitArray.map((_, index) => (
-							<Pile key={index} pileIndex={index + 2} pileType="tableau" />
-						))}
-					</div> */}
+					<div className="w-full flex flex-col gap-board items-start justify-center">
+						<div className="w-full flex gap-board items-start justify-center">
+							{suitArray.map((_, index) => (
+								<Pile key={index} pileIndex={index + 2} pileType="tableau" />
+							))}
+						</div>
 
-					<div className="w-full flex gap-board items-start justify-center">
-						{suitArray.map((_, index) => (
-							<Pile
-								key={index}
-								pileIndex={index + 2 + suitCount}
-								pileType="discard"
-							/>
-						))}
+						<div className="w-full flex gap-board items-start justify-center">
+							{suitArray.map((_, index) => (
+								<Pile
+									key={index}
+									pileIndex={index + 2 + suitCount}
+									pileType="discard"
+								/>
+							))}
+						</div>
+
+						<div className="w-full flex gap-board items-start justify-center">
+							{suitArray.map((_, index) => (
+								<Pile
+									key={index}
+									pileIndex={index + 2 + suitCount * 2}
+									pileType="tableau"
+								/>
+							))}
+						</div>
 					</div>
-
-					{/* <div className="min-h-[22vw] w-full flex gap-board items-start justify-center">
-						{suitArray.map((_, index) => (
-							<Pile
-								key={index}
-								pileIndex={index + 2 + suitCount * 2}
-								pileType="tableau"
-							/>
-						))}
-					</div> */}
 
 					<div className="absolute bottom-0 inset-x-0 transform translate-y-1/2 flex justify-center items-center">
 						<Pile pileIndex={2 + suitCount * 3} pileType="hand" />

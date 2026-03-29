@@ -12,11 +12,7 @@ import {
 	SUIT_COLORS,
 	SUIT_NAMES,
 } from "../utils/constants";
-import {
-	type GameState,
-	isPileComplete,
-	useGameStore,
-} from "../utils/gameStore";
+import { type GameState, useGameStore } from "../utils/gameStore";
 import {
 	CardBackSVG,
 	FireSVG,
@@ -37,13 +33,10 @@ const Card = ({ cardId }: { cardId: number }) => {
 
 	// delay changes to zIndex until after transition completes
 	useEffect(() => {
-		const timeout = setTimeout(
-			() => {
-				setIsActive(store.isActive);
-				setZIndex(store.cardPileIndex);
-			},
-			!isActive && store.isActive ? 0 : CARD_TRANSITION_DURATION,
-		);
+		const timeout = setTimeout(() => {
+			setIsActive(store.isActive);
+			setZIndex(store.cardPileIndex);
+		}, CARD_TRANSITION_DURATION / 2);
 		return () => clearTimeout(timeout);
 	}, [isActive, store.cardPileIndex, store.isActive]);
 
@@ -105,9 +98,7 @@ const getShallowCardState =
 		const { width, height } = getPileSize();
 		const isActive = cardId === state.activeCard?.id;
 		const isShuffling = state.dealPhase === 0;
-		const isInCompletedPile = isPileComplete(card.pileIndex, state.cards);
-		const isFaceDown =
-			pileIndex === 0 || pileIndex === 1 || isShuffling || isInCompletedPile;
+		const isFaceDown = pileIndex === 0 || pileIndex === 1 || isShuffling;
 		const isDragging = isActive && pressed;
 
 		const deckX = window.innerWidth / 2 - width / 2;

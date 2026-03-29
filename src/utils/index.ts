@@ -39,7 +39,7 @@ export const getCardPilePosition = (card: CardType) => {
 			? "deck"
 			: card.pileIndex === 1 || card.pileIndex === SUIT_NAMES.length * 3 + 2
 				? "hand"
-				: card.pileIndex > 5 && card.pileIndex < 11
+				: card.pileIndex > 6 && card.pileIndex < 12
 					? "discard"
 					: "tableau";
 
@@ -48,7 +48,8 @@ export const getCardPilePosition = (card: CardType) => {
 	let rotate = 0;
 	if (pileType === "tableau") {
 		const { width } = getPileSize();
-		offsetY = card.cardPileIndex * (CARD_Y_GAP * width);
+		offsetY =
+			card.cardPileIndex * (CARD_Y_GAP * width) * (card.pileIndex > 6 ? 1 : -1);
 	}
 	if (pileType === "hand") {
 		const { width } = getPileSize();
