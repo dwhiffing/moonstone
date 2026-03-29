@@ -13,6 +13,7 @@ interface CardShallowState {
 	x: number;
 	y: number;
 	scale: number;
+	rotate: number;
 	isActive: boolean;
 	isDragging: boolean;
 	pileType: string;

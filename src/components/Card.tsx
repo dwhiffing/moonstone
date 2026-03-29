@@ -60,8 +60,8 @@ const Card = ({ cardId }: { cardId: number }) => {
 	const transitionProperty = !hasMounted
 		? "none"
 		: store.isActive
-			? "scale"
-			: "scale, translate, box-shadow";
+			? "scale, rotate"
+			: "scale, translate, rotate, box-shadow";
 	const transitionDelay = `${store.transitionDelay}ms`;
 
 	return (
@@ -71,6 +71,7 @@ const Card = ({ cardId }: { cardId: number }) => {
 			style={{
 				zIndex,
 				scale: store.scale,
+				rotate: `${store.rotate}deg`,
 				transitionProperty,
 				transitionDuration,
 				transitionTimingFunction,
@@ -95,7 +96,12 @@ const getShallowCardState =
 
 		const { cardPileIndex, pileIndex, suit, rank } = card;
 		const { mouseX, mouseY, pressed } = state.cursorState;
-		const { x: xPos, y: yPos, pileType } = getCardPilePosition(card);
+		const {
+			x: xPos,
+			y: yPos,
+			pileType,
+			rotate: rotatePos,
+		} = getCardPilePosition(card);
 		const { width, height } = getPileSize();
 		const isActive = cardId === state.activeCard?.id;
 		const isShuffling = state.dealPhase === 0;
@@ -110,11 +116,13 @@ const getShallowCardState =
 		const x = isShuffling ? deckX : isDragging ? mouseX : xPos;
 		const y = isShuffling ? deckY : isDragging ? mouseY : yPos;
 		const scale = isActive ? 1.15 : 1;
+		const rotate = isDragging || isShuffling ? 0 : rotatePos;
 
 		return {
 			x,
 			y,
 			scale,
+			rotate,
 			isActive,
 			isDragging,
 			pileType,

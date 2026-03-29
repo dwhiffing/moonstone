@@ -45,6 +45,7 @@ export const getCardPilePosition = (card: CardType) => {
 
 	const CARD_Y_GAP = 0.25;
 	const CARD_X_GAP = 0.3;
+	let rotate = 0;
 	if (pileType === "tableau") {
 		const { width } = getPileSize();
 		offsetY = card.cardPileIndex * (CARD_Y_GAP * width);
@@ -52,13 +53,21 @@ export const getCardPilePosition = (card: CardType) => {
 	if (pileType === "hand") {
 		const { width } = getPileSize();
 		const gw = CARD_X_GAP * width;
-		offsetX = card.cardPileIndex * gw - gw * 2.25;
+		const ANGLE_STEP_DEG = 5;
+		const distFromCenter = card.cardPileIndex - 3.5;
+		const angleRad = distFromCenter * ANGLE_STEP_DEG * (Math.PI / 180);
+		const R = gw / Math.sin(ANGLE_STEP_DEG * (Math.PI / 180));
+		const yDirection = card.pileIndex === 1 ? -1 : 1;
+		rotate = distFromCenter * ANGLE_STEP_DEG * yDirection;
+		offsetX = R * Math.sin(angleRad);
+		offsetY = R * (1 - Math.cos(angleRad)) * yDirection;
 	}
 
 	return {
 		x: pilePos.x + offsetX,
 		y: pilePos.y + offsetY,
 		pileType,
+		rotate,
 	};
 };
 
