@@ -8,9 +8,11 @@ export const SUIT_COLORS: string[] = [
   '#9a54ae',
   '#e28d26',
 ]
-export const SUIT_NAMES: string[] = ['fire', 'water', 'leaf', 'moon', 'star']
+export const SUIT_NAMES: string[] = ['fire', 'water', 'leaf']
 export const NUM_SUITS = SUIT_NAMES.length
 export const NUM_DISCARD_PILES = 4
+
+export const END_CARD_RANK: Rank = 10
 
 const SUITS = Array.from({ length: NUM_SUITS }, (_, i) => i)
 const RANK_COUNTS: [Rank, number][] = [
@@ -24,6 +26,7 @@ const RANK_COUNTS: [Rank, number][] = [
   [7, 1],
   [8, 1],
   [9, 1],
+  [10, 2],
 ]
 const RANKS_EXPANDED = RANK_COUNTS.flatMap(([rank, count]) =>
   Array.from({ length: count }, () => rank),

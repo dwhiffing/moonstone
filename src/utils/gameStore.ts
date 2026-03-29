@@ -3,6 +3,7 @@ import { getCardPilePosition, getPileSize } from '.'
 import {
   CARD_TRANSITION_DURATION,
   CARDS,
+  END_CARD_RANK,
   HAND_SIZE,
   NUM_DISCARD_PILES,
   NUM_SUITS,
@@ -485,6 +486,11 @@ const getPileFromPoint = (x: number, y: number) => {
 
 const isValidPlay = (pile: CardType[], card: CardType): boolean => {
   const topCard = pile.at(-1)
+  const pileHasEndCard = pile.some((c) => c.rank === END_CARD_RANK)
+  // Once an end card is in the pile, only end cards can be played
+  if (pileHasEndCard) return card.rank === END_CARD_RANK
+  // End cards can always be played into a pile that has no end card yet
+  if (card.rank === END_CARD_RANK) return true
   if (!topCard) return true
   if (card.rank === topCard.rank) return true
   const direction = getPileDirection(pile)

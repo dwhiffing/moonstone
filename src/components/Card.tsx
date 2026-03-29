@@ -137,18 +137,19 @@ export default memo(Card)
 const _CardFront = ({ suit, rank }: { suit: Suit; rank: Rank }) => {
   const color = SUIT_COLORS[suit]
   const suitName = SUIT_NAMES[suit]
+  const rankLabel = rank === 10 ? 'X' : rank
 
   return (
     <div className="card-front" style={{ color }}>
       <div className={`${suitName} corner-rank tl`}>
         <div className="rank">
-          <span>{rank}</span>
+          <span>{rankLabel}</span>
         </div>
         <Suit suit={suit} />
       </div>
       <div className={`${suitName} corner-rank br`}>
         <div className="rank">
-          <span>{rank}</span>
+          <span>{rankLabel}</span>
         </div>
         <Suit suit={suit} />
       </div>
