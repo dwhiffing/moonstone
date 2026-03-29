@@ -1,35 +1,37 @@
 import Peer, { type DataConnection, type PeerOptions } from 'peerjs'
 import { create } from 'zustand'
 
+function readTurnConfig() {
+  return {
+    turnUrl: import.meta.env.VITE_TURN_URL as string | undefined,
+    turnUsername: import.meta.env.VITE_TURN_USERNAME as string | undefined,
+    turnCredential: import.meta.env.VITE_TURN_CREDENTIAL as string | undefined,
+  }
+}
+
+function getTurnConfigError(): string | null {
+  const { turnUrl, turnUsername, turnCredential } = readTurnConfig()
+  const provided = [turnUrl, turnUsername, turnCredential].filter(Boolean)
+
+  if (provided.length > 0 && provided.length < 3) {
+    return 'Partial TURN configuration: set VITE_TURN_URL, VITE_TURN_USERNAME, and VITE_TURN_CREDENTIAL to enable TURN relay.'
+  }
+  if (turnUrl && !/^turns?:/.test(turnUrl)) {
+    return `Invalid TURN URL: "${turnUrl}" must start with "turn:" or "turns:".`
+  }
+  return null
+}
+
 function buildPeerConfig(): PeerOptions {
   const iceServers: RTCIceServer[] = [
     { urls: 'stun:stun.l.google.com:19302' },
   ]
 
-  const turnUrl = import.meta.env.VITE_TURN_URL as string | undefined
-  const turnUsername = import.meta.env.VITE_TURN_USERNAME as string | undefined
-  const turnCredential = import.meta.env.VITE_TURN_CREDENTIAL as
-    | string
-    | undefined
-
-  const provided = [turnUrl, turnUsername, turnCredential].filter(Boolean)
-
-  if (provided.length > 0 && provided.length < 3) {
-    console.warn(
-      '[PeerJS] Partial TURN configuration detected. ' +
-        'Set all three of VITE_TURN_URL, VITE_TURN_USERNAME, and VITE_TURN_CREDENTIAL to enable TURN relay.',
-    )
-  } else if (
-    turnUrl &&
-    turnUsername &&
-    turnCredential &&
-    /^turns?:/.test(turnUrl)
-  ) {
-    iceServers.push({ urls: turnUrl, username: turnUsername, credential: turnCredential })
-  } else if (turnUrl && !/^turns?:/.test(turnUrl)) {
-    console.warn(
-      `[PeerJS] VITE_TURN_URL "${turnUrl}" does not start with "turn:" or "turns:". TURN server will not be used.`,
-    )
+  if (!getTurnConfigError()) {
+    const { turnUrl, turnUsername, turnCredential } = readTurnConfig()
+    if (turnUrl && turnUsername && turnCredential) {
+      iceServers.push({ urls: turnUrl, username: turnUsername, credential: turnCredential })
+    }
   }
 
   return { config: { iceServers } }
@@ -110,7 +112,7 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
   error: null,
 
   openLobby: () =>
-    set({ showLobbyModal: true, lobbyPhase: 'menu', error: null }),
+    set({ showLobbyModal: true, lobbyPhase: 'menu', error: getTurnConfigError() }),
 
   closeLobby: () => {
     if (!get().peerConnected) {
