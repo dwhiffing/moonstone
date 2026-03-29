@@ -167,10 +167,10 @@ function initializeGameState(): Omit<GameState, "cards"> {
 }
 
 function generateCards(): { cards: CardType[]; seed: number } {
-	const selectedCards = CARDS;
 	const seed = Date.now();
-	const shuffledCards = seededShuffle(selectedCards, seed);
-	const cards = shuffledCards.map((n, i) => {
+	const shuffledCards = seededShuffle(CARDS, seed);
+	const dealtCards = shuffledCards.slice(30);
+	const cards = dealtCards.map((n, i) => {
 		const id = i;
 		if (i < 16) {
 			const pileIndex = i % 2 === 0 ? 17 : 1;
@@ -277,7 +277,10 @@ const getPileFromPoint = (x: number, y: number) => {
 };
 
 const isAdjacentInValue = (cards: CardType[]) =>
-	isDescending(cards) || isAscending(cards);
+	isEqual(cards) || isDescending(cards) || isAscending(cards);
+
+const isEqual = (cards: CardType[]) =>
+	cards.every((card) => cards[0].rank === card.rank);
 
 const isDescending = (cards: CardType[]) =>
 	cards.filter((card, i) =>

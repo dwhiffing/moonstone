@@ -10,11 +10,24 @@ export const SUIT_COLORS: string[] = [
 ];
 export const SUIT_NAMES: string[] = ["fire", "water", "leaf", "moon", "star"];
 
-export const NUM_RANKS = 10;
 export const NUM_SUITS = 5;
 
 const SUITS = Array.from({ length: NUM_SUITS }, (_, i) => i);
-const VALUES = Array.from({ length: NUM_RANKS }, (_, i) => i);
+const RANK_COUNTS: [Rank, number][] = [
+	[0, 1],
+	[1, 1],
+	[2, 1],
+	[3, 2],
+	[4, 3],
+	[5, 3],
+	[6, 2],
+	[7, 1],
+	[8, 1],
+	[9, 1],
+];
+const RANKS_EXPANDED = RANK_COUNTS.flatMap(([rank, count]) =>
+	Array.from({ length: count }, () => rank),
+);
 export const CARDS = SUITS.map((s) =>
-	VALUES.map((n) => ({ rank: n as Rank, suit: s as Suit })),
+	RANKS_EXPANDED.map((n) => ({ rank: n as Rank, suit: s as Suit })),
 ).flat();
