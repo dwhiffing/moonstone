@@ -1,7 +1,7 @@
 import debounce from "lodash/debounce";
 import { useShallow } from "zustand/react/shallow";
 import { useForceUpdate, useWindowEvent } from "../utils";
-import { NUM_SUITS } from "../utils/constants";
+import { NUM_DISCARD_PILES, NUM_SUITS } from "../utils/constants";
 import { useGameStore } from "../utils/gameStore";
 import Card from "./Card";
 import { Header } from "./Header";
@@ -24,6 +24,7 @@ function App() {
 	useWindowEvent("pointermove", state.onMouseMove);
 
 	const suitCount = NUM_SUITS;
+	const discardCount = NUM_DISCARD_PILES;
 	const suitArray = Array.from({ length: suitCount });
 	return (
 		<div className="bg-surface absolute inset-0">
@@ -46,7 +47,15 @@ function App() {
 						</div>
 
 						<div className="w-full flex gap-board items-start justify-center">
-							{suitArray.map((_, index) => (
+							{[0, 1].map((index) => (
+								<Pile
+									key={index}
+									pileIndex={index + 2 + suitCount}
+									pileType="discard"
+								/>
+							))}
+							<div className="pile" />
+							{[2, 3].map((index) => (
 								<Pile
 									key={index}
 									pileIndex={index + 2 + suitCount}
@@ -59,7 +68,7 @@ function App() {
 							{suitArray.map((_, index) => (
 								<Pile
 									key={index}
-									pileIndex={index + 2 + suitCount * 2}
+									pileIndex={index + 2 + suitCount + discardCount}
 									pileType="tableau"
 								/>
 							))}
@@ -67,7 +76,10 @@ function App() {
 					</div>
 
 					<div className="absolute bottom-0 inset-x-0 transform translate-y-2/5 flex justify-center items-center">
-						<Pile pileIndex={2 + suitCount * 3} pileType="hand" />
+						<Pile
+							pileIndex={2 + suitCount * 2 + discardCount}
+							pileType="hand"
+						/>
 					</div>
 				</div>
 			</div>

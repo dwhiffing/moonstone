@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { NUM_SUITS } from "./constants";
+import { NUM_DISCARD_PILES, NUM_SUITS } from "./constants";
 
 export const useForceUpdate = () => {
 	const [, setValue] = useState(0);
@@ -37,9 +37,11 @@ export const getCardPilePosition = (card: CardType) => {
 	const pileType =
 		card.pileIndex === 0
 			? "deck"
-			: card.pileIndex === 1 || card.pileIndex === NUM_SUITS * 3 + 2
+			: card.pileIndex === 1 ||
+					card.pileIndex === NUM_SUITS * 2 + NUM_DISCARD_PILES + 2
 				? "hand"
-				: card.pileIndex > 1 + NUM_SUITS && card.pileIndex < 2 + NUM_SUITS * 2
+				: card.pileIndex > 1 + NUM_SUITS &&
+						card.pileIndex < 2 + NUM_SUITS + NUM_DISCARD_PILES
 					? "discard"
 					: "tableau";
 
@@ -51,7 +53,7 @@ export const getCardPilePosition = (card: CardType) => {
 		offsetY =
 			card.cardPileIndex *
 			(CARD_Y_GAP * width) *
-			(card.pileIndex > 1 + NUM_SUITS ? 1 : -1);
+			(card.pileIndex >= 2 + NUM_SUITS + NUM_DISCARD_PILES ? 1 : -1);
 	}
 	if (pileType === "hand") {
 		const { width } = getPileSize();

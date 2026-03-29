@@ -4,6 +4,7 @@ import {
 	CARD_TRANSITION_DURATION,
 	CARDS,
 	HAND_SIZE,
+	NUM_DISCARD_PILES,
 	NUM_SUITS,
 } from "./constants";
 import { seededShuffle } from "./seededShuffle";
@@ -96,11 +97,12 @@ export const useGameStore = create<GameStore>((set, get) => {
 			// Draw phase: player must pick a pile to draw from
 			if (turnPhase === 1) {
 				const s = NUM_SUITS;
-				const playerHandPile = 2 + s * 3;
+				const playerHandPile = 2 + s * 2 + NUM_DISCARD_PILES;
 				const sourcePileIndex = getPileAtPoint(clientX, clientY, cards);
 				const isDrawPile = sourcePileIndex === 0;
 				const isDiscardPile =
-					sourcePileIndex >= 2 + s && sourcePileIndex < 2 + s * 2;
+					sourcePileIndex >= 2 + s &&
+					sourcePileIndex < 2 + s + NUM_DISCARD_PILES;
 				const sourceCard = getCardPile(sourcePileIndex, cards).at(-1);
 				const isAllowed =
 					(isDrawPile || isDiscardPile) &&
@@ -122,7 +124,7 @@ export const useGameStore = create<GameStore>((set, get) => {
 			const isDiscardCard =
 				clickedCard &&
 				clickedCard.pileIndex >= 2 + s &&
-				clickedCard.pileIndex < 2 + s * 2;
+				clickedCard.pileIndex < 2 + s + NUM_DISCARD_PILES;
 			const pickableCard =
 				clickedCard &&
 				isCardPickable(clickedCard) &&
@@ -213,7 +215,7 @@ function generateCards(): { cards: CardType[]; seed: number } {
 	const shuffledCards = seededShuffle(CARDS, seed);
 	const dealtCards = shuffledCards.slice(30);
 	const handCardCount = HAND_SIZE * 2;
-	const playerHandPile = NUM_SUITS * 3 + 2;
+	const playerHandPile = NUM_SUITS * 2 + NUM_DISCARD_PILES + 2;
 	const cards = dealtCards.map((n, i) => {
 		const id = i;
 		if (i < handCardCount) {
@@ -241,7 +243,7 @@ const moveCard = (
 	if (!activeCard || pileIndex === -1) return set({ cards, activeCard: null });
 
 	const s = NUM_SUITS;
-	const handPile = playerIndex === 0 ? 2 + s * 3 : 1;
+	const handPile = playerIndex === 0 ? 2 + s * 2 + NUM_DISCARD_PILES : 1;
 
 	const cardsInTargetPile = getCardPile(pileIndex, cards);
 	const targetCard = cardsInTargetPile.at(-1) ?? null;
@@ -297,7 +299,10 @@ const aiTakeTurn = (
 
 	if (turnPhase === 0) {
 		// Play phase: move a random hand card to a random discard pile
-		const discardPileIndices = Array.from({ length: s }, (_, i) => 2 + s + i);
+		const discardPileIndices = Array.from(
+			{ length: NUM_DISCARD_PILES },
+			(_, i) => 2 + s + i,
+		);
 		const handCards = getCardPile(opponentHandPile, cards);
 		if (handCards.length === 0) return;
 		const randomCard = handCards[Math.floor(Math.random() * handCards.length)];
@@ -306,7 +311,10 @@ const aiTakeTurn = (
 		moveCard(randomCard, randomDiscardPile, 1, get, set);
 	} else {
 		// Draw phase: randomly pick a non-empty source pile (deck or discard, excluding just-played pile)
-		const discardPileIndices = Array.from({ length: s }, (_, i) => 2 + s + i);
+		const discardPileIndices = Array.from(
+			{ length: NUM_DISCARD_PILES },
+			(_, i) => 2 + s + i,
+		);
 		const nonEmptyDiscards = discardPileIndices.filter(
 			(i) =>
 				getCardPile(i, cards).length > 0 && i !== get().lastPlayedPileIndex,
@@ -357,7 +365,7 @@ const getPileScore = (length: number): number =>
 
 const getScore = (playerIndex: 0 | 1, cards: CardType[]): number => {
 	const s = NUM_SUITS;
-	const tableauStart = playerIndex === 0 ? 2 + s * 2 : 2;
+	const tableauStart = playerIndex === 0 ? 2 + s + NUM_DISCARD_PILES : 2;
 	return Array.from({ length: s }, (_, i) =>
 		getPileScore(getCardPile(tableauStart + i, cards).length),
 	).reduce((a, b) => a + b, 0);
@@ -399,7 +407,7 @@ const getPileDirection = (pile: CardType[]): "asc" | "desc" | null => {
 
 const sortHandCards = (cards: CardType[]): CardType[] => {
 	let result = cards;
-	const handPileIndices = [1, 2 + NUM_SUITS * 3];
+	const handPileIndices = [1, 2 + NUM_SUITS * 2 + NUM_DISCARD_PILES];
 	for (const handPileIndex of handPileIndices) {
 		const handCards = getCardPile(handPileIndex, result);
 		const sorted = [...handCards].sort((a, b) =>
@@ -427,6 +435,10 @@ const isCardPickable = (card: CardType): boolean => {
 	if (card.pileIndex === 0) return false; // deck
 	if (card.pileIndex === 1) return false; // opponent hand
 	if (card.pileIndex >= 2 && card.pileIndex < 2 + s) return false; // opponent tableau
-	if (card.pileIndex >= 2 + s * 2 && card.pileIndex < 2 + s * 3) return false; // player's own tableau (already played)
+	if (
+		card.pileIndex >= 2 + s + NUM_DISCARD_PILES &&
+		card.pileIndex < 2 + s * 2 + NUM_DISCARD_PILES
+	)
+		return false; // player's own tableau (already played)
 	return true;
 };

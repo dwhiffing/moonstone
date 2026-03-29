@@ -10,6 +10,7 @@ export const SUIT_COLORS: string[] = [
 ];
 export const SUIT_NAMES: string[] = ["fire", "water", "leaf", "moon", "star"];
 export const NUM_SUITS = SUIT_NAMES.length;
+export const NUM_DISCARD_PILES = 4;
 
 const SUITS = Array.from({ length: NUM_SUITS }, (_, i) => i);
 const RANK_COUNTS: [Rank, number][] = [
