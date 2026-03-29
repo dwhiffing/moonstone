@@ -5,6 +5,7 @@ import {
   CARDS,
   END_CARD_RANK,
   HAND_SIZE,
+  NEUTRAL_SUIT,
   NUM_DISCARD_PILES,
   NUM_SUITS,
 } from './constants'
@@ -317,10 +318,18 @@ const moveCard = (
     pileIndex >= ownTableauStart &&
     pileIndex <= ownTableauEnd
 
+  // Neutral cards can be played into any tableau pile (own or opponent's not applicable —
+  // they still go to own tableau, but not restricted to suit. isValidPlay handles rank check.)
+  const isNeutral = activeCard.suit === NEUTRAL_SUIT
+  const isValidTableau =
+    pileType === 'tableau' &&
+    (isNeutral
+      ? pileIndex >= ownTableauStart && pileIndex <= ownTableauEnd
+      : isOwnTableau) &&
+    isValidPlay(cardsInTargetPile, activeCard)
+
   const isValid =
-    pileType !== 'hand' &&
-    (pileType === 'discard' ||
-      (isOwnTableau && isValidPlay(cardsInTargetPile, activeCard)))
+    pileType !== 'hand' && (pileType === 'discard' || isValidTableau)
 
   if (!isValid) return set({ cards, activeCard: null })
 
@@ -491,6 +500,9 @@ const isValidPlay = (pile: CardType[], card: CardType): boolean => {
   if (pileHasEndCard) return card.rank === END_CARD_RANK
   // End cards can always be played into a pile that has no end card yet
   if (card.rank === END_CARD_RANK) return true
+  // Neutral cards: can only be played where the top card has the same rank
+  if (card.suit === NEUTRAL_SUIT)
+    return topCard !== undefined && card.rank === topCard.rank
   if (!topCard) return true
   if (card.rank === topCard.rank) return true
   const direction = getPileDirection(pile)

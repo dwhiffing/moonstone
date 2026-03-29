@@ -9,6 +9,7 @@ import {
 } from '../utils'
 import {
   CARD_TRANSITION_DURATION,
+  NEUTRAL_SUIT,
   NUM_DISCARD_PILES,
   NUM_SUITS,
   SUIT_COLORS,
@@ -135,8 +136,9 @@ const getShallowCardState =
 export default memo(Card)
 
 const _CardFront = ({ suit, rank }: { suit: Suit; rank: Rank }) => {
-  const color = SUIT_COLORS[suit]
-  const suitName = SUIT_NAMES[suit]
+  const isNeutral = suit === NEUTRAL_SUIT
+  const color = isNeutral ? '#222' : SUIT_COLORS[suit]
+  const suitName = isNeutral ? 'neutral' : SUIT_NAMES[suit]
   const rankLabel = rank === 10 ? 'X' : rank
 
   return (
@@ -145,18 +147,16 @@ const _CardFront = ({ suit, rank }: { suit: Suit; rank: Rank }) => {
         <div className="rank">
           <span>{rankLabel}</span>
         </div>
-        <Suit suit={suit} />
+        {!isNeutral && <Suit suit={suit} />}
       </div>
       <div className={`${suitName} corner-rank br`}>
         <div className="rank">
           <span>{rankLabel}</span>
         </div>
-        <Suit suit={suit} />
+        {!isNeutral && <Suit suit={suit} />}
       </div>
 
-      <div className="center-suit">
-        <Suit suit={suit} />
-      </div>
+      <div className="center-suit">{!isNeutral && <Suit suit={suit} />}</div>
     </div>
   )
 }
