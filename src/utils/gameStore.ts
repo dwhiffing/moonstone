@@ -1,6 +1,11 @@
 import { create } from "zustand";
 import { getCardPilePosition, getPileSize } from ".";
-import { CARD_TRANSITION_DURATION, CARDS, SUIT_NAMES } from "./constants";
+import {
+	CARD_TRANSITION_DURATION,
+	CARDS,
+	HAND_SIZE,
+	NUM_SUITS,
+} from "./constants";
 import { seededShuffle } from "./seededShuffle";
 
 type MouseParams = { clientX: number; clientY: number };
@@ -49,7 +54,7 @@ export const useGameStore = create<GameStore>((set, get) => {
 				() => {
 					set({ dealPhase: -1, cards: sortHandCards(get().cards) });
 				},
-				(CARD_TRANSITION_DURATION / 2) * 17,
+				(CARD_TRANSITION_DURATION / 2) * (HAND_SIZE * 2 + 1),
 			);
 		}, 500);
 	};
@@ -90,7 +95,7 @@ export const useGameStore = create<GameStore>((set, get) => {
 
 			// Draw phase: player must pick a pile to draw from
 			if (turnPhase === 1) {
-				const s = SUIT_NAMES.length;
+				const s = NUM_SUITS;
 				const playerHandPile = 2 + s * 3;
 				const sourcePileIndex = getPileAtPoint(clientX, clientY, cards);
 				const isDrawPile = sourcePileIndex === 0;
@@ -122,12 +127,9 @@ export const useGameStore = create<GameStore>((set, get) => {
 				Date.now() - cursorDownAt < 350;
 
 			if (isDoubleClick && pickableCard) {
-				const pileIndex = findValidPile(pickableCard, cards);
-				if (pileIndex !== null) {
-					lastDoubleClickAt = Date.now();
-					moveCard(pickableCard, pileIndex, 0, get, set);
-					return;
-				}
+				lastDoubleClickAt = Date.now();
+				// moveCard(pickableCard, pileIndex, 0, get, set);
+				// return;
 			}
 
 			if (activeCard) {
@@ -135,11 +137,7 @@ export const useGameStore = create<GameStore>((set, get) => {
 				moveCard(activeCard, targetPileIndex, 0, get, set);
 			}
 
-			if (
-				pickableCard
-				// pickableCard?.cardPileIndex ===
-				// 	getCardPile(pickableCard.pileIndex, cards).length - 1 &&
-			) {
+			if (pickableCard) {
 				set({ activeCard: activeCard ? null : pickableCard });
 			}
 
@@ -205,14 +203,16 @@ function generateCards(): { cards: CardType[]; seed: number } {
 	const seed = Date.now();
 	const shuffledCards = seededShuffle(CARDS, seed);
 	const dealtCards = shuffledCards.slice(30);
+	const handCardCount = HAND_SIZE * 2;
+	const playerHandPile = NUM_SUITS * 3 + 2;
 	const cards = dealtCards.map((n, i) => {
 		const id = i;
-		if (i < 16) {
-			const pileIndex = i % 2 === 0 ? 17 : 1;
+		if (i < handCardCount) {
+			const pileIndex = i % 2 === 0 ? playerHandPile : 1;
 			const cardPileIndex = Math.floor(i / 2);
 			return { ...n, id, pileIndex, cardPileIndex };
 		}
-		return { ...n, id, pileIndex: 0, cardPileIndex: i - 16 };
+		return { ...n, id, pileIndex: 0, cardPileIndex: i - handCardCount };
 	});
 
 	return { cards, seed };
@@ -231,7 +231,7 @@ const moveCard = (
 	const { cards } = get();
 	if (!activeCard || pileIndex === -1) return set({ cards, activeCard: null });
 
-	const s = SUIT_NAMES.length;
+	const s = NUM_SUITS;
 	const handPile = playerIndex === 0 ? 2 + s * 3 : 1;
 
 	const cardsInTargetPile = getCardPile(pileIndex, cards);
@@ -243,9 +243,8 @@ const moveCard = (
 	const pileType = pile?.dataset.piletype || "tableau";
 
 	const isValid =
-		pileType === "discard" ||
-		!targetCard ||
-		isAdjacentInValue([targetCard, activeCard]);
+		pileType !== "hand" &&
+		(pileType === "discard" || isValidPlay(cardsInTargetPile, activeCard));
 
 	if (!isValid) return set({ cards, activeCard: null });
 
@@ -284,7 +283,7 @@ const aiTakeTurn = (
 	set: (state: Partial<GameStore>) => void,
 ) => {
 	const { cards, turnPhase } = get();
-	const s = SUIT_NAMES.length;
+	const s = NUM_SUITS;
 	const opponentHandPile = 1;
 
 	if (turnPhase === 0) {
@@ -297,13 +296,14 @@ const aiTakeTurn = (
 			discardPileIndices[Math.floor(Math.random() * discardPileIndices.length)];
 		moveCard(randomCard, randomDiscardPile, 1, get, set);
 	} else {
-		// Draw phase: randomly pick deck or a non-empty discard pile
+		// Draw phase: randomly pick a non-empty source pile (deck or discard, excluding just-played pile)
 		const discardPileIndices = Array.from({ length: s }, (_, i) => 2 + s + i);
 		const nonEmptyDiscards = discardPileIndices.filter(
 			(i) =>
 				getCardPile(i, cards).length > 0 && i !== get().lastPlayedPileIndex,
 		);
-		const drawOptions = [0, ...nonEmptyDiscards];
+		const deckCard = getCardPile(0, cards).at(-1);
+		const drawOptions = [...(deckCard ? [0] : []), ...nonEmptyDiscards];
 		const sourcePileIndex =
 			drawOptions[Math.floor(Math.random() * drawOptions.length)];
 		const sourceCard = getCardPile(sourcePileIndex, cards).at(-1);
@@ -326,15 +326,32 @@ const drawIntoHand = (
 	const merged = [...handCards, deckTopCard].sort((a, b) =>
 		a.suit !== b.suit ? a.suit - b.suit : a.rank - b.rank,
 	);
+	const updatedCards = current.map((card) => {
+		const newIdx = merged.findIndex((c) => c.id === card.id);
+		if (newIdx === -1) return card;
+		return { ...card, pileIndex: handPileIndex, cardPileIndex: newIdx };
+	});
 	set({
 		currentPlayerIndex: nextPlayerIndex,
 		lastPlayedPileIndex: null,
-		cards: current.map((card) => {
-			const newIdx = merged.findIndex((c) => c.id === card.id);
-			if (newIdx === -1) return card;
-			return { ...card, pileIndex: handPileIndex, cardPileIndex: newIdx };
-		}),
+		cards: updatedCards,
 	});
+	console.log(
+		`Turn end — Player 0: ${getScore(0, updatedCards)}, Player 1: ${getScore(1, updatedCards)}`,
+	);
+};
+
+const PILE_SCORE = [0, -4, -3, -2, 1, 2, 3, 6, 7, 10];
+
+const getPileScore = (length: number): number =>
+	PILE_SCORE[Math.min(length, PILE_SCORE.length - 1)];
+
+const getScore = (playerIndex: 0 | 1, cards: CardType[]): number => {
+	const s = NUM_SUITS;
+	const tableauStart = playerIndex === 0 ? 2 + s * 2 : 2;
+	return Array.from({ length: s }, (_, i) =>
+		getPileScore(getCardPile(tableauStart + i, cards).length),
+	).reduce((a, b) => a + b, 0);
 };
 
 const getCardFromPoint = (x: number, y: number, cards: CardType[]) => {
@@ -353,25 +370,27 @@ const getPileFromPoint = (x: number, y: number) => {
 	return +(elementUnder?.dataset.pileindex || "-1");
 };
 
-const isAdjacentInValue = (cards: CardType[]) =>
-	isEqual(cards) || isDescending(cards) || isAscending(cards);
+const isValidPlay = (pile: CardType[], card: CardType): boolean => {
+	const topCard = pile.at(-1);
+	if (!topCard) return true;
+	if (card.rank === topCard.rank) return true;
+	const direction = getPileDirection(pile);
+	if (direction === null) return true;
+	if (direction === "asc") return card.rank > topCard.rank;
+	return card.rank < topCard.rank;
+};
 
-const isEqual = (cards: CardType[]) =>
-	cards.every((card) => cards[0].rank === card.rank);
-
-const isDescending = (cards: CardType[]) =>
-	cards.filter((card, i) =>
-		cards[i + 1] ? card.rank === cards[i + 1].rank + 1 : true,
-	).length === cards.length;
-
-const isAscending = (cards: CardType[]) =>
-	cards.filter((card, i) =>
-		cards[i + 1] ? card.rank === cards[i + 1].rank - 1 : true,
-	).length === cards.length;
+const getPileDirection = (pile: CardType[]): "asc" | "desc" | null => {
+	for (let i = 0; i < pile.length - 1; i++) {
+		if (pile[i].rank < pile[i + 1].rank) return "asc";
+		if (pile[i].rank > pile[i + 1].rank) return "desc";
+	}
+	return null;
+};
 
 const sortHandCards = (cards: CardType[]): CardType[] => {
 	let result = cards;
-	const handPileIndices = [1, 2 + SUIT_NAMES.length * 3];
+	const handPileIndices = [1, 2 + NUM_SUITS * 3];
 	for (const handPileIndex of handPileIndices) {
 		const handCards = getCardPile(handPileIndex, result);
 		const sorted = [...handCards].sort((a, b) =>
@@ -391,31 +410,11 @@ const getCardPile = (pileIndex: number, cards: CardType[]) => {
 	return pile.sort((a, b) => a.cardPileIndex - b.cardPileIndex);
 };
 
-const findValidPile = (card: CardType, cards: CardType[]): number | null => {
-	for (let i = 0; i < SUIT_NAMES.length; i++) {
-		const pileIndex = i;
-
-		const foundationCards = getCardPile(pileIndex, cards);
-		const topCard = foundationCards.at(-1);
-
-		if (!topCard) continue;
-
-		const suitsMatch = card.suit === topCard.suit;
-		const ranksAdjacent = isAdjacentInValue([topCard, card]);
-
-		if (suitsMatch && ranksAdjacent) {
-			return pileIndex;
-		}
-	}
-
-	return null;
-};
-
 // Piles the local player owns and can pick cards from:
 //   pile 17 = player hand, piles 7–11 = discard
 // Disabled: deck (0), opponent hand (1), opponent tableau (2–6), player's own tableau (12–16)
 const isCardPickable = (card: CardType): boolean => {
-	const s = SUIT_NAMES.length;
+	const s = NUM_SUITS;
 	if (card.pileIndex === 0) return false; // deck
 	if (card.pileIndex === 1) return false; // opponent hand
 	if (card.pileIndex >= 2 && card.pileIndex < 2 + s) return false; // opponent tableau

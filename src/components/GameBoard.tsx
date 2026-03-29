@@ -1,7 +1,7 @@
 import debounce from "lodash/debounce";
 import { useShallow } from "zustand/react/shallow";
 import { useForceUpdate, useWindowEvent } from "../utils";
-import { SUIT_NAMES } from "../utils/constants";
+import { NUM_SUITS } from "../utils/constants";
 import { useGameStore } from "../utils/gameStore";
 import Card from "./Card";
 import { Header } from "./Header";
@@ -23,7 +23,7 @@ function App() {
 	useWindowEvent("pointerdown", state.onMouseDown);
 	useWindowEvent("pointermove", state.onMouseMove);
 
-	const suitCount = SUIT_NAMES.length;
+	const suitCount = NUM_SUITS;
 	const suitArray = Array.from({ length: suitCount });
 	return (
 		<div className="bg-surface absolute inset-0">
