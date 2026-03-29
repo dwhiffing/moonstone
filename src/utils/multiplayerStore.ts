@@ -3,59 +3,54 @@ import { create } from 'zustand'
 
 function readTurnConfig() {
   return {
-    turnUrl: import.meta.env.VITE_TURN_URL as string | undefined,
     turnUsername: import.meta.env.VITE_TURN_USERNAME as string | undefined,
     turnCredential: import.meta.env.VITE_TURN_CREDENTIAL as string | undefined,
   }
 }
 
 function getTurnConfigError(): string | null {
-  const { turnUrl, turnUsername, turnCredential } = readTurnConfig()
-  const provided = [turnUrl, turnUsername, turnCredential].filter(Boolean)
+  const { turnUsername, turnCredential } = readTurnConfig()
+  const provided = [turnUsername, turnCredential].filter(Boolean)
 
-  if (provided.length > 0 && provided.length < 3) {
-    return 'Partial TURN configuration: set VITE_TURN_URL, VITE_TURN_USERNAME, and VITE_TURN_CREDENTIAL to enable TURN relay.'
-  }
-  if (turnUrl && !/^turns?:/.test(turnUrl)) {
-    return `Invalid TURN URL: "${turnUrl}" must start with "turn:" or "turns:".`
+  if (provided.length > 0 && provided.length < 2) {
+    return 'Partial TURN configuration: set VITE_TURN_USERNAME and VITE_TURN_CREDENTIAL to enable TURN relay.'
   }
   return null
 }
 
 function buildPeerConfig(): PeerOptions {
-  // const { turnUsername, turnCredential } = readTurnConfig()
   const iceServers: RTCIceServer[] = [
-    {
-      urls: 'stun:stun.relay.metered.ca:80',
-    },
-    {
-      urls: 'turn:global.relay.metered.ca:80',
-      username: '97df7336285a5523e8c0c17d',
-      credential: 'QhMvwKEwNjvZ49OD',
-    },
-    {
-      urls: 'turn:global.relay.metered.ca:80?transport=tcp',
-      username: '97df7336285a5523e8c0c17d',
-      credential: 'QhMvwKEwNjvZ49OD',
-    },
-    {
-      urls: 'turn:global.relay.metered.ca:443',
-      username: '97df7336285a5523e8c0c17d',
-      credential: 'QhMvwKEwNjvZ49OD',
-    },
-    {
-      urls: 'turns:global.relay.metered.ca:443?transport=tcp',
-      username: '97df7336285a5523e8c0c17d',
-      credential: 'QhMvwKEwNjvZ49OD',
-    },
+    // Public STUN — no cost, handles most NAT traversal
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
   ]
 
-  // if (!getTurnConfigError()) {
-  //   const { turnUrl, turnUsername, turnCredential } = readTurnConfig()
-  //   if (turnUrl && turnUsername && turnCredential) {
-  //     iceServers.push({ urls: turnUrl, username: turnUsername, credential: turnCredential })
-  //   }
-  // }
+  // Only add TURN if explicitly configured via env vars
+  const { turnUsername, turnCredential } = readTurnConfig()
+  if (!getTurnConfigError() && turnUsername && turnCredential) {
+    iceServers.push(
+      {
+        urls: 'turn:global.relay.metered.ca:80',
+        username: turnUsername,
+        credential: turnCredential,
+      },
+      // {
+      //   urls: 'turn:global.relay.metered.ca:80?transport=tcp',
+      //   username: turnUsername,
+      //   credential: turnCredential,
+      // },
+      // {
+      //   urls: 'turn:global.relay.metered.ca:443',
+      //   username: turnUsername,
+      //   credential: turnCredential,
+      // },
+      // {
+      //   urls: 'turns:global.relay.metered.ca:443?transport=tcp',
+      //   username: turnUsername,
+      //   credential: turnCredential,
+      // },
+    )
+  }
 
   return { config: { iceServers } }
 }
@@ -68,6 +63,11 @@ type PeerMessage =
   | { type: 'game-start'; seed: number }
   | { type: 'move'; move: MoveData }
 
+export function isTurnConfigured(): boolean {
+  const { turnUsername, turnCredential } = readTurnConfig()
+  return !!(turnUsername && turnCredential && !getTurnConfigError())
+}
+
 export type LobbyPhase = 'menu' | 'hosting' | 'joining' | 'connecting'
 
 export interface MultiplayerState {
@@ -77,6 +77,7 @@ export interface MultiplayerState {
   gameCode: string | null
   peerConnected: boolean
   error: string | null
+  turnWarning: string | null
 }
 
 interface MultiplayerStore extends MultiplayerState {
@@ -133,12 +134,16 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
   gameCode: null,
   peerConnected: false,
   error: null,
+  turnWarning: null,
 
   openLobby: () =>
     set({
       showLobbyModal: true,
       lobbyPhase: 'menu',
       error: getTurnConfigError(),
+      turnWarning: isTurnConfigured()
+        ? null
+        : 'TURN relay is not configured. Players behind strict firewalls may not be able to connect.',
     }),
 
   closeLobby: () => {
