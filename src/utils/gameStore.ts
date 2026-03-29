@@ -7,6 +7,12 @@ import {
 	NUM_DISCARD_PILES,
 	NUM_SUITS,
 } from "./constants";
+import {
+	type MoveData,
+	setOnGameStart,
+	setOnRemoteMove,
+	useMultiplayerStore,
+} from "./multiplayerStore";
 import { seededShuffle } from "./seededShuffle";
 
 type MouseParams = { clientX: number; clientY: number };
@@ -17,6 +23,7 @@ export interface GameState {
 	cursorState: { mouseX: number; mouseY: number; pressed: boolean };
 	dealPhase: -1 | 0 | 1; // -1 = not dealing, 0 = cards in deck, 1 = dealing
 	currentPlayerIndex: 0 | 1;
+	localPlayerIndex: 0 | 1; // 0 = AI mode or multiplayer host, 1 = multiplayer guest
 	turnPhase: 0 | 1; // 0 = play a card, 1 = draw a card
 	lastPlayedPileIndex: number | null;
 	turnsUntilEnd: number | null; // null = deck not yet empty; counts down from 2 after last deck draw
@@ -26,6 +33,8 @@ export interface GameState {
 
 interface GameStore extends GameState {
 	newGame: () => void;
+	startMultiplayerGame: (seed: number, localPlayerIndex: 0 | 1) => void;
+	applyRemoteMove: (move: MoveData) => void;
 	onMouseDown: (params: MouseParams) => void;
 	onMouseUp: (params: MouseParams) => void;
 	onMouseMove: (params: MouseParams) => void;
@@ -46,9 +55,9 @@ let aiTurnTimeout: number | null = null;
 let lastDoubleClickAt = 0;
 
 export const useGameStore = create<GameStore>((set, get) => {
-	const newGame = () => {
-		const { cards } = generateCards();
-		set({ ...initializeGameState(), cards });
+	const startGame = (seed?: number, localPlayerIndex: 0 | 1 = 0) => {
+		const { cards } = generateCards(seed);
+		set({ ...initializeGameState(), cards, localPlayerIndex });
 		if (dealTimeout) clearTimeout(dealTimeout);
 		if (aiTurnTimeout) clearTimeout(aiTurnTimeout);
 		dealTimeout = setTimeout(() => {
@@ -61,6 +70,8 @@ export const useGameStore = create<GameStore>((set, get) => {
 			);
 		}, 500);
 	};
+
+	const newGame = () => startGame();
 
 	const hasSeenInstructions =
 		localStorage.getItem("hasSeenInstructions") === "true";
@@ -92,14 +103,40 @@ export const useGameStore = create<GameStore>((set, get) => {
 		...initializeGameState(),
 
 		newGame,
+		startMultiplayerGame: (seed: number, localPlayerIndex: 0 | 1) =>
+			startGame(seed, localPlayerIndex),
+		applyRemoteMove: (move: MoveData) => {
+			const state = get();
+			const remotePlayerIndex: 0 | 1 = state.localPlayerIndex === 0 ? 1 : 0;
+			const s = NUM_SUITS;
+			if (move.phase === "play") {
+				const card = state.cards.find((c) => c.id === move.cardId);
+				if (!card) return;
+				moveCard(card, move.targetPileIndex, remotePlayerIndex, get, set, true);
+			} else {
+				const sourceCard = getCardPile(move.sourcePileIndex, state.cards).at(
+					-1,
+				);
+				if (!sourceCard) return;
+				const remoteHandPile =
+					remotePlayerIndex === 0 ? 2 + s * 2 + NUM_DISCARD_PILES : 1;
+				const nextPlayerIndex: 0 | 1 = remotePlayerIndex === 0 ? 1 : 0;
+				set({ turnPhase: 0 });
+				drawIntoHand(remoteHandPile, sourceCard, nextPlayerIndex, get, set);
+			}
+		},
 		onMouseDown: ({ clientX, clientY }: MouseParams) => {
-			if (get().currentPlayerIndex !== 0 || get().gameOver) return;
+			const localPlayerIndex = get().localPlayerIndex;
+			if (get().currentPlayerIndex !== localPlayerIndex || get().gameOver)
+				return;
 			const { activeCard, cards, turnPhase } = get();
 
 			// Draw phase: player must pick a pile to draw from
 			if (turnPhase === 1) {
 				const s = NUM_SUITS;
-				const playerHandPile = 2 + s * 2 + NUM_DISCARD_PILES;
+				const playerHandPile =
+					localPlayerIndex === 0 ? 2 + s * 2 + NUM_DISCARD_PILES : 1;
+				const nextPlayerIndex: 0 | 1 = localPlayerIndex === 0 ? 1 : 0;
 				const sourcePileIndex = getPileAtPoint(clientX, clientY, cards);
 				const isDrawPile = sourcePileIndex === 0;
 				const isDiscardPile =
@@ -112,11 +149,18 @@ export const useGameStore = create<GameStore>((set, get) => {
 					sourcePileIndex !== get().lastPlayedPileIndex;
 				if (isAllowed) {
 					set({ turnPhase: 0 });
-					drawIntoHand(playerHandPile, sourceCard, 1, get, set);
-					aiTurnTimeout = setTimeout(
-						() => aiTakeTurn(get, set),
-						CARD_TRANSITION_DURATION,
-					);
+					drawIntoHand(playerHandPile, sourceCard, nextPlayerIndex, get, set);
+					const { mode } = useMultiplayerStore.getState();
+					if (mode === "multiplayer") {
+						useMultiplayerStore
+							.getState()
+							.sendMove({ phase: "draw", sourcePileIndex });
+					} else {
+						aiTurnTimeout = setTimeout(
+							() => aiTakeTurn(get, set),
+							CARD_TRANSITION_DURATION,
+						);
+					}
 				}
 				return;
 			}
@@ -129,7 +173,7 @@ export const useGameStore = create<GameStore>((set, get) => {
 				clickedCard.pileIndex < 2 + s + NUM_DISCARD_PILES;
 			const pickableCard =
 				clickedCard &&
-				isCardPickable(clickedCard) &&
+				isCardPickable(clickedCard, localPlayerIndex) &&
 				!(turnPhase === 0 && isDiscardCard)
 					? clickedCard
 					: undefined;
@@ -146,8 +190,8 @@ export const useGameStore = create<GameStore>((set, get) => {
 			}
 
 			if (activeCard) {
-				const targetPileIndex = getPileAtPoint(clientX, clientY, cards);
-				moveCard(activeCard, targetPileIndex, 0, get, set);
+				const targetPileIndex = getPileAtPoint(clientX, clientY, cards)
+				moveCard(activeCard, targetPileIndex, localPlayerIndex, get, set)
 			}
 
 			if (pickableCard) {
@@ -158,13 +202,14 @@ export const useGameStore = create<GameStore>((set, get) => {
 			cursorDownAt = Date.now();
 			lastClickedCardId = pickableCard?.id ?? null;
 			if (pickableCard) {
-				const { x: cardX, y: cardY } = getCardPilePosition(pickableCard);
-				cursorDelta = { x: clientX - cardX, y: clientY - cardY };
-				set({ cursorState: { mouseX: cardX, mouseY: cardY, pressed: true } });
+				const { x: cardX, y: cardY } = getCardPilePosition(pickableCard, localPlayerIndex)
+				cursorDelta = { x: clientX - cardX, y: clientY - cardY }
+				set({ cursorState: { mouseX: cardX, mouseY: cardY, pressed: true } })
 			}
 		},
 		onMouseUp: ({ clientX, clientY }: MouseParams) => {
-			if (get().currentPlayerIndex !== 0) return;
+			const localPlayerIndex = get().localPlayerIndex
+			if (get().currentPlayerIndex !== localPlayerIndex) return;
 			const { activeCard, cards } = get();
 			const posDiff =
 				Math.abs(cursorDownPos.x - clientX) +
@@ -179,8 +224,8 @@ export const useGameStore = create<GameStore>((set, get) => {
 				const { width, height } = getPileSize();
 				const x = clientX + (width / 2 - cursorDelta.x);
 				const y = clientY + (height / 2 - cursorDelta.y);
-				const targetPileIndex = getPileAtPoint(x, y, cards);
-				moveCard(activeCard, targetPileIndex, 0, get, set);
+				const targetPileIndex = getPileAtPoint(x, y, cards)
+				moveCard(activeCard, targetPileIndex, localPlayerIndex, get, set)
 			}
 
 			cursorDownPos = { x: 0, y: 0 };
@@ -206,6 +251,7 @@ function initializeGameState(): Omit<GameState, "cards"> {
 		cursorState: { mouseX: 0, mouseY: 0, pressed: false },
 		dealPhase: 0,
 		currentPlayerIndex: 0,
+		localPlayerIndex: 0,
 		turnPhase: 0,
 		lastPlayedPileIndex: null,
 		turnsUntilEnd: null,
@@ -214,8 +260,11 @@ function initializeGameState(): Omit<GameState, "cards"> {
 	};
 }
 
-function generateCards(): { cards: CardType[]; seed: number } {
-	const seed = Date.now();
+function generateCards(seedInput?: number): {
+	cards: CardType[];
+	seed: number;
+} {
+	const seed = seedInput ?? Date.now();
 	const shuffledCards = seededShuffle(CARDS, seed);
 	const dealtCards = shuffledCards.slice(30);
 	const handCardCount = HAND_SIZE * 2;
@@ -242,24 +291,33 @@ const moveCard = (
 	playerIndex: 0 | 1,
 	get: () => GameStore,
 	set: (state: Partial<GameStore>) => void,
+	isRemote = false,
 ) => {
 	const { cards } = get();
 	if (!activeCard || pileIndex === -1) return set({ cards, activeCard: null });
 
-	const s = NUM_SUITS;
-	const handPile = playerIndex === 0 ? 2 + s * 2 + NUM_DISCARD_PILES : 1;
+	const s = NUM_SUITS
+	const d = NUM_DISCARD_PILES
+	const handPile = playerIndex === 0 ? 2 + s * 2 + d : 1
+	const ownTableauStart = playerIndex === 0 ? 2 + s + d : 2
+	const ownTableauEnd = ownTableauStart + s - 1 // inclusive
 
-	const cardsInTargetPile = getCardPile(pileIndex, cards);
-	const targetCard = cardsInTargetPile.at(-1) ?? null;
+	const cardsInTargetPile = getCardPile(pileIndex, cards)
+	const targetCard = cardsInTargetPile.at(-1) ?? null
 
 	const pile = document.querySelector(
 		`.pile[data-pileindex="${pileIndex}"]`,
-	) as HTMLDivElement | null;
-	const pileType = pile?.dataset.piletype || "tableau";
+	) as HTMLDivElement | null
+	const pileType = pile?.dataset.piletype || 'tableau'
+
+	const isOwnTableau =
+		pileType === 'tableau' &&
+		pileIndex >= ownTableauStart &&
+		pileIndex <= ownTableauEnd
 
 	const isValid =
-		pileType !== "hand" &&
-		(pileType === "discard" || isValidPlay(cardsInTargetPile, activeCard));
+		pileType !== 'hand' &&
+		(pileType === 'discard' || (isOwnTableau && isValidPlay(cardsInTargetPile, activeCard)))
 
 	if (!isValid) return set({ cards, activeCard: null });
 
@@ -280,16 +338,34 @@ const moveCard = (
 	});
 
 	if (activeCard.pileIndex === handPile) {
-		// Both player and AI must choose a pile to draw from
-		setTimeout(() => {
-			set({ turnPhase: 1 });
-			if (playerIndex === 1) {
-				aiTurnTimeout = setTimeout(
-					() => aiTakeTurn(get, set),
-					CARD_TRANSITION_DURATION,
-				);
+		// Send move to peer in multiplayer (only for local moves)
+		if (!isRemote) {
+			const { mode, sendMove } = useMultiplayerStore.getState();
+			if (mode === "multiplayer") {
+				sendMove({
+					phase: "play",
+					cardId: activeCard.id,
+					targetPileIndex: pileIndex,
+				});
 			}
-		}, CARD_TRANSITION_DURATION);
+		}
+		// Both player and AI must choose a pile to draw from.
+		// For remote moves, the draw message will arrive separately and drawIntoHand
+		// handles the transition — no need to set turnPhase: 1 here.
+		if (!isRemote) {
+			setTimeout(() => {
+				set({ turnPhase: 1 })
+				if (playerIndex === 1) {
+					const { mode } = useMultiplayerStore.getState()
+					if (mode === 'ai') {
+						aiTurnTimeout = setTimeout(
+							() => aiTakeTurn(get, set),
+							CARD_TRANSITION_DURATION,
+						)
+					}
+				}
+			}, CARD_TRANSITION_DURATION)
+		}
 	}
 };
 
@@ -299,6 +375,7 @@ const aiTakeTurn = (
 ) => {
 	const { cards, turnPhase, gameOver } = get();
 	if (gameOver) return;
+	if (useMultiplayerStore.getState().mode === "multiplayer") return;
 	const s = NUM_SUITS;
 	const opponentHandPile = 1;
 
@@ -367,11 +444,12 @@ const drawIntoHand = (
 
 	set({
 		currentPlayerIndex: nextPlayerIndex,
+		turnPhase: 0,
 		lastPlayedPileIndex: null,
 		turnsUntilEnd,
 		gameOver,
 		cards: updatedCards,
-	});
+	})
 };
 
 const PILE_SCORE = [0, -4, -3, -2, 1, 2, 3, 6, 7, 10];
@@ -443,18 +521,29 @@ const getCardPile = (pileIndex: number, cards: CardType[]) => {
 	return pile.sort((a, b) => a.cardPileIndex - b.cardPileIndex);
 };
 
-// Piles the local player owns and can pick cards from:
-//   pile 17 = player hand, piles 7–11 = discard
-// Disabled: deck (0), opponent hand (1), opponent tableau (2–6), player's own tableau (12–16)
-const isCardPickable = (card: CardType): boolean => {
+// Piles the local player can pick cards from.
+// localPlayerIndex=0: own hand=17, can pick 17 + discard(7-11)
+// localPlayerIndex=1: own hand=1,  can pick 1  + discard(7-11)
+const isCardPickable = (card: CardType, localPlayerIndex: 0 | 1): boolean => {
 	const s = NUM_SUITS;
+	const d = NUM_DISCARD_PILES;
 	if (card.pileIndex === 0) return false; // deck
-	if (card.pileIndex === 1) return false; // opponent hand
-	if (card.pileIndex >= 2 && card.pileIndex < 2 + s) return false; // opponent tableau
-	if (
-		card.pileIndex >= 2 + s + NUM_DISCARD_PILES &&
-		card.pileIndex < 2 + s * 2 + NUM_DISCARD_PILES
-	)
-		return false; // player's own tableau (already played)
+	if (localPlayerIndex === 0) {
+		if (card.pileIndex === 1) return false; // opponent hand
+		if (card.pileIndex >= 2 && card.pileIndex < 2 + s) return false; // opponent tableau
+		if (card.pileIndex >= 2 + s + d && card.pileIndex < 2 + s * 2 + d)
+			return false; // own played tableau
+	} else {
+		if (card.pileIndex === 2 + s * 2 + d) return false; // opponent hand
+		if (card.pileIndex >= 2 + s + d && card.pileIndex < 2 + s * 2 + d)
+			return false; // opponent tableau
+		if (card.pileIndex >= 2 && card.pileIndex < 2 + s) return false; // own played tableau
+	}
 	return true;
 };
+
+// Wire multiplayer callbacks after both stores are initialised
+setOnRemoteMove((move) => useGameStore.getState().applyRemoteMove(move));
+setOnGameStart((seed, localPlayerIndex) =>
+	useGameStore.getState().startMultiplayerGame(seed, localPlayerIndex),
+);

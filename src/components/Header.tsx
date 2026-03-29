@@ -1,10 +1,12 @@
 import { useGameStore } from "../utils/gameStore";
+import { useMultiplayerStore } from "../utils/multiplayerStore";
 import { Dropdown } from "./Dropdown";
 import { HamburgerSVG } from "./svg";
 
 export function Header() {
 	const newGame = useGameStore((s) => s.newGame);
 	const openInstructions = useGameStore((s) => s.openInstructions);
+	const { mode, peerConnected, openLobby, disconnect } = useMultiplayerStore();
 
 	return (
 		<div className="flex justify-between items-center text-white py-2 px-3 lg:p-5 relative z-header pointer-events-none">
@@ -17,7 +19,13 @@ export function Header() {
 				</button>
 			</div>
 
-			<div className="flex-1 flex justify-center pointer-events-auto cursor-pointer"></div>
+			<div className="flex-1 flex justify-center pointer-events-auto cursor-pointer">
+				{mode === "multiplayer" && (
+					<span className="text-xs opacity-60">
+						{peerConnected ? "Online" : "Disconnected"}
+					</span>
+				)}
+			</div>
 
 			<div className="flex-1 flex items-center justify-end gap-2 pointer-events-auto">
 				<Dropdown
@@ -25,8 +33,23 @@ export function Header() {
 					label={<HamburgerSVG />}
 					items={[
 						{
-							label: "New Game",
-							onClick: () => newGame(),
+							label: "New Game (vs AI)",
+							onClick: () => {
+								if (mode === "multiplayer") disconnect();
+								newGame();
+							},
+						},
+						{
+							label:
+								mode === "multiplayer" ? "Leave Multiplayer" : "Multiplayer",
+							onClick: () => {
+								if (mode === "multiplayer") {
+									disconnect();
+									newGame();
+								} else {
+									openLobby();
+								}
+							},
 						},
 					]}
 				/>

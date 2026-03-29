@@ -9,9 +9,11 @@ import {
 } from "../utils";
 import {
 	CARD_TRANSITION_DURATION,
+	NUM_DISCARD_PILES,
+	NUM_SUITS,
 	SUIT_COLORS,
 	SUIT_NAMES,
-} from "../utils/constants";
+} from '../utils/constants'
 import { type GameState, useGameStore } from "../utils/gameStore";
 import {
 	CardBackSVG,
@@ -95,12 +97,16 @@ const getShallowCardState =
 			y: yPos,
 			pileType,
 			rotate: rotatePos,
-		} = getCardPilePosition(card);
-		const { width, height } = getPileSize();
-		const isActive = cardId === state.activeCard?.id;
-		const isShuffling = state.dealPhase === 0;
-		const isInDeck = pileIndex === 0;
-		const isFaceDown = isInDeck || pileIndex === 1 || isShuffling;
+		} = getCardPilePosition(card, state.localPlayerIndex)
+		const { width, height } = getPileSize()
+		const isActive = cardId === state.activeCard?.id
+		const isShuffling = state.dealPhase === 0
+		const isInDeck = pileIndex === 0
+		const opponentHandPile =
+			state.localPlayerIndex === 0
+				? 1
+				: NUM_SUITS * 2 + NUM_DISCARD_PILES + 2
+		const isFaceDown = isInDeck || pileIndex === opponentHandPile || isShuffling
 		const isDragging = isActive && pressed;
 
 		const deckX = window.innerWidth / 2 - width / 2;

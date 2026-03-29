@@ -30,7 +30,10 @@ const getPilePos = (pileIndex: number) => {
 	return { x: pilePos?.x ?? 0, y: pilePos?.y ?? 0 };
 };
 
-export const getCardPilePosition = (card: CardType) => {
+export const getCardPilePosition = (
+	card: CardType,
+	localPlayerIndex: 0 | 1 = 0,
+) => {
 	const pilePos = getPilePos(card.pileIndex);
 	let offsetX = 0;
 	let offsetY = 0;
@@ -48,12 +51,13 @@ export const getCardPilePosition = (card: CardType) => {
 	const CARD_Y_GAP = 0.25;
 	const CARD_X_GAP = 0.3;
 	let rotate = 0;
-	if (pileType === "tableau") {
-		const { width } = getPileSize();
-		offsetY =
-			card.cardPileIndex *
-			(CARD_Y_GAP * width) *
-			(card.pileIndex >= 2 + NUM_SUITS + NUM_DISCARD_PILES ? 1 : -1);
+	if (pileType === 'tableau') {
+		const { width } = getPileSize()
+		const isOwnTableau =
+			localPlayerIndex === 0
+				? card.pileIndex >= 2 + NUM_SUITS + NUM_DISCARD_PILES
+				: card.pileIndex < 2 + NUM_SUITS + NUM_DISCARD_PILES
+		offsetY = card.cardPileIndex * (CARD_Y_GAP * width) * (isOwnTableau ? 1 : -1)
 	}
 	if (pileType === "hand") {
 		const { width } = getPileSize();
@@ -62,7 +66,9 @@ export const getCardPilePosition = (card: CardType) => {
 		const distFromCenter = card.cardPileIndex - 3.5;
 		const angleRad = distFromCenter * ANGLE_STEP_DEG * (Math.PI / 180);
 		const R = gw / Math.sin(ANGLE_STEP_DEG * (Math.PI / 180));
-		const yDirection = card.pileIndex === 1 ? -1 : 1;
+		const opponentHandPile =
+			localPlayerIndex === 0 ? 1 : NUM_SUITS * 2 + NUM_DISCARD_PILES + 2
+		const yDirection = card.pileIndex === opponentHandPile ? -1 : 1;
 		rotate = distFromCenter * ANGLE_STEP_DEG * yDirection;
 		offsetX = R * Math.sin(angleRad);
 		offsetY = R * (1 - Math.cos(angleRad)) * yDirection;
