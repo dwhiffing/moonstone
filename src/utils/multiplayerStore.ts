@@ -23,16 +23,39 @@ function getTurnConfigError(): string | null {
 }
 
 function buildPeerConfig(): PeerOptions {
+  const { turnUsername, turnCredential } = readTurnConfig()
   const iceServers: RTCIceServer[] = [
-    { urls: 'stun:stun.relay.metered.ca:80' },
+    {
+      urls: 'stun:stun.relay.metered.ca:80',
+    },
+    {
+      urls: 'turn:global.relay.metered.ca:80',
+      username: turnUsername,
+      credential: turnCredential,
+    },
+    {
+      urls: 'turn:global.relay.metered.ca:80?transport=tcp',
+      username: turnUsername,
+      credential: turnCredential,
+    },
+    {
+      urls: 'turn:global.relay.metered.ca:443',
+      username: turnUsername,
+      credential: turnCredential,
+    },
+    {
+      urls: 'turns:global.relay.metered.ca:443?transport=tcp',
+      username: turnUsername,
+      credential: turnCredential,
+    },
   ]
 
-  if (!getTurnConfigError()) {
-    const { turnUrl, turnUsername, turnCredential } = readTurnConfig()
-    if (turnUrl && turnUsername && turnCredential) {
-      iceServers.push({ urls: turnUrl, username: turnUsername, credential: turnCredential })
-    }
-  }
+  // if (!getTurnConfigError()) {
+  //   const { turnUrl, turnUsername, turnCredential } = readTurnConfig()
+  //   if (turnUrl && turnUsername && turnCredential) {
+  //     iceServers.push({ urls: turnUrl, username: turnUsername, credential: turnCredential })
+  //   }
+  // }
 
   return { config: { iceServers } }
 }
@@ -112,7 +135,11 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
   error: null,
 
   openLobby: () =>
-    set({ showLobbyModal: true, lobbyPhase: 'menu', error: getTurnConfigError() }),
+    set({
+      showLobbyModal: true,
+      lobbyPhase: 'menu',
+      error: getTurnConfigError(),
+    }),
 
   closeLobby: () => {
     if (!get().peerConnected) {
