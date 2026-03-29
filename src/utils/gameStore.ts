@@ -78,8 +78,6 @@ export const useGameStore = create<GameStore>((set, get) => {
   const hasSeenInstructions =
     localStorage.getItem('hasSeenInstructions') === 'true'
 
-  setTimeout(() => newGame(), 0)
-
   if (
     window.matchMedia('(any-pointer: coarse)').matches &&
     !window.matchMedia('(display-mode: fullscreen), (display-mode: standalone)')
