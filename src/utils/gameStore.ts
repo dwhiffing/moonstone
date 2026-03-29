@@ -118,8 +118,17 @@ export const useGameStore = create<GameStore>((set, get) => {
 			}
 
 			const clickedCard = getCardFromPoint(clientX, clientY, cards);
+			const s = NUM_SUITS;
+			const isDiscardCard =
+				clickedCard &&
+				clickedCard.pileIndex >= 2 + s &&
+				clickedCard.pileIndex < 2 + s * 2;
 			const pickableCard =
-				clickedCard && isCardPickable(clickedCard) ? clickedCard : undefined;
+				clickedCard &&
+				isCardPickable(clickedCard) &&
+				!(turnPhase === 0 && isDiscardCard)
+					? clickedCard
+					: undefined;
 
 			const isDoubleClick =
 				pickableCard?.id != null &&
