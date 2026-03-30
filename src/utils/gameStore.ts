@@ -121,6 +121,9 @@ export const useGameStore = create<GameStore>((set, get) => {
         const nextPlayerIndex: 0 | 1 = remotePlayerIndex === 0 ? 1 : 0
         set({ turnPhase: 0 })
         drawIntoHand(remoteHandPile, sourceCard, nextPlayerIndex, get, set)
+        if (useMultiplayerStore.getState().mode === 'multiplayer') {
+          navigator.vibrate?.(100)
+        }
       }
     },
     onMouseDown: ({ clientX, clientY }: MouseParams) => {
