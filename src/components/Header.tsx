@@ -6,6 +6,9 @@ import { HamburgerSVG } from './svg'
 export function Header() {
   const newGame = useGameStore((s) => s.newGame)
   const openInstructions = useGameStore((s) => s.openInstructions)
+  const inGame = useGameStore(
+    (s) => s.cards.length > 0 && !s.gameOver && s.dealPhase === -1,
+  )
   const { mode, openLobby, disconnect } = useMultiplayerStore()
 
   return (
@@ -24,39 +27,37 @@ export function Header() {
           className="w-10"
           label={<HamburgerSVG />}
           items={[
-            {
-              label: 'Host Game',
-              onClick: () => {
-                if (mode === 'multiplayer') disconnect()
-                openLobby('hosting')
-                useMultiplayerStore.getState().hostGame()
-              },
-            },
-            {
-              label: 'Join Game',
-              onClick: () => {
-                if (mode === 'multiplayer') disconnect()
-                openLobby('joining')
-              },
-            },
-            ...(mode === 'multiplayer'
+            ...(mode !== 'multiplayer'
               ? [
                   {
-                    label: 'Leave Multiplayer',
+                    label: 'Host Game',
                     onClick: () => {
-                      disconnect()
+                      openLobby('hosting')
+                      useMultiplayerStore.getState().hostGame()
+                    },
+                  },
+                  {
+                    label: 'Join Game',
+                    onClick: () => {
+                      openLobby('joining')
+                    },
+                  },
+                  {
+                    label: 'Local Game vs AI',
+                    onClick: () => {
                       newGame()
                     },
                   },
                 ]
               : []),
-            {
-              label: 'Local Game vs AI',
-              onClick: () => {
-                if (mode === 'multiplayer') disconnect()
-                newGame()
-              },
-            },
+            ...(mode === 'multiplayer'
+              ? [
+                  {
+                    label: 'Leave Multiplayer',
+                    onClick: () => disconnect(),
+                  },
+                ]
+              : []),
           ]}
         />
       </div>

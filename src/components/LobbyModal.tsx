@@ -2,10 +2,33 @@ import { useState } from 'react'
 import { useMultiplayerStore } from '../utils/multiplayerStore'
 import { Modal } from './Modal'
 
+function getGameCode(): string {
+  const url = new URL(window.location.href)
+  return url.searchParams.get('join') || ''
+}
+
+function getShareUrl(code: string): string {
+  const url = new URL(window.location.href)
+  url.searchParams.delete('host')
+  url.searchParams.delete('join')
+  url.searchParams.set('join', code)
+  return url.toString()
+}
+
 export function LobbyModal() {
   const { showLobbyModal, lobbyPhase, gameCode, error, closeLobby, joinGame } =
     useMultiplayerStore()
-  const [inputCode, setInputCode] = useState('')
+  const [inputCode, setInputCode] = useState(getGameCode())
+  const [copied, setCopied] = useState(false)
+
+  const handleShare = async () => {
+    if (!gameCode) return
+    const url = getShareUrl(gameCode)
+
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+    await navigator.clipboard.writeText(url)
+  }
 
   return (
     <Modal show={showLobbyModal} onClose={closeLobby}>
@@ -23,6 +46,12 @@ export function LobbyModal() {
             <p className="text-center text-sm opacity-70">
               Waiting for opponent to join…
             </p>
+            <button
+              className="w-full py-2 px-4 rounded bg-primary text-white font-bold"
+              onClick={handleShare}
+              type="button">
+              {copied ? 'Link Copied!' : 'Share Link'}
+            </button>
             <button
               className="w-full py-2 px-4 rounded bg-on-surface text-white"
               onClick={closeLobby}>

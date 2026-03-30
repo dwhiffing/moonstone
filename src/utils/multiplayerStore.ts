@@ -1,6 +1,8 @@
 import Peer, { type DataConnection, type PeerOptions } from 'peerjs'
 import { create } from 'zustand'
 
+const STORAGE_KEY = 'keltis-mp-state'
+
 function readTurnConfig() {
   return {
     turnUsername: import.meta.env.VITE_TURN_USERNAME as string | undefined,
@@ -59,10 +61,22 @@ export type MoveData =
   | { phase: 'play'; cardId: number; targetPileIndex: number }
   | { phase: 'draw'; sourcePileIndex: number }
 
+export interface SavedGameState {
+  cards: CardType[]
+  currentPlayerIndex: 0 | 1
+  turnPhase: 0 | 1
+  lastPlayedPileIndex: number | null
+  turnsUntilEnd: number | null
+  gameOver: boolean
+  wins: [number, number]
+}
+
 type PeerMessage =
-  | { type: 'game-start'; seed: number }
-  | { type: 'new-game'; seed: number }
+  | { type: 'game-start'; seed: number; wins: [number, number] }
+  | { type: 'new-game'; seed: number; wins: [number, number] }
+  | { type: 'game-resume'; state: SavedGameState }
   | { type: 'move'; move: MoveData }
+  | { type: 'leave' }
 
 export function isTurnConfigured(): boolean {
   const { turnUsername, turnCredential } = readTurnConfig()
@@ -77,6 +91,7 @@ export interface MultiplayerState {
   lobbyPhase: LobbyPhase
   gameCode: string | null
   peerConnected: boolean
+  reconnecting: boolean
   error: string | null
   wins: [number, number]
 }
@@ -84,7 +99,7 @@ export interface MultiplayerState {
 interface MultiplayerStore extends MultiplayerState {
   openLobby: (phase: Exclude<LobbyPhase, 'connecting'>) => void
   closeLobby: () => void
-  hostGame: () => void
+  hostGame: (code?: string) => void
   joinGame: (code: string) => void
   startNewGame: () => void
   recordResult: (iWon: boolean) => void
@@ -101,6 +116,26 @@ let onRemoteMoveCallback: ((move: MoveData) => void) | null = null
 let onGameStartCallback:
   | ((seed: number, localPlayerIndex: 0 | 1) => void)
   | null = null
+let onGameResumeCallback:
+  | ((state: SavedGameState, localPlayerIndex: 0 | 1) => void)
+  | null = null
+
+let onDisconnectCallback: (() => void) | null = null
+let reconnectInterval: ReturnType<typeof setInterval> | null = null
+let intentionalDisconnect = false
+let remoteLeft = false
+
+function watchConnection(c: DataConnection) {
+  const pc = c.peerConnection
+  pc.oniceconnectionstatechange = () => {
+    if (
+      pc.iceConnectionState === 'disconnected' ||
+      pc.iceConnectionState === 'failed'
+    ) {
+      handleConnClose()
+    }
+  }
+}
 
 export const setOnRemoteMove = (fn: (move: MoveData) => void) => {
   onRemoteMoveCallback = fn
@@ -110,6 +145,59 @@ export const setOnGameStart = (
   fn: (seed: number, localPlayerIndex: 0 | 1) => void,
 ) => {
   onGameStartCallback = fn
+}
+
+export const setOnGameResume = (
+  fn: (state: SavedGameState, localPlayerIndex: 0 | 1) => void,
+) => {
+  onGameResumeCallback = fn
+}
+
+export const setOnDisconnect = (fn: () => void) => {
+  onDisconnectCallback = fn
+}
+
+function stopReconnecting() {
+  if (reconnectInterval) {
+    clearInterval(reconnectInterval)
+    reconnectInterval = null
+  }
+}
+
+// URL param helpers
+function setUrlParam(key: string, value: string) {
+  const url = new URL(window.location.href)
+  // clear both params, only one should be set at a time
+  url.searchParams.delete('host')
+  url.searchParams.delete('join')
+  url.searchParams.set(key, value)
+  history.replaceState(null, '', url.toString())
+}
+
+function clearUrlParams() {
+  const url = new URL(window.location.href)
+  url.searchParams.delete('host')
+  url.searchParams.delete('join')
+  history.replaceState(null, '', url.toString())
+}
+
+// localStorage helpers for host game state persistence
+export function saveGameState(state: SavedGameState) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
+}
+
+function loadGameState(): SavedGameState | null {
+  const raw = localStorage.getItem(STORAGE_KEY)
+  if (!raw) return null
+  try {
+    return JSON.parse(raw) as SavedGameState
+  } catch {
+    return null
+  }
+}
+
+export function clearGameState() {
+  localStorage.removeItem(STORAGE_KEY)
 }
 
 function generateCode(): string {
@@ -126,7 +214,30 @@ function peerIdFromCode(code: string): string {
 
 function handleConnClose() {
   conn = null
-  useMultiplayerStore.setState({ peerConnected: false })
+  if (intentionalDisconnect) return
+  if (remoteLeft) {
+    remoteLeft = false
+    useMultiplayerStore.getState().disconnect()
+    return
+  }
+  const state = useMultiplayerStore.getState()
+  if (state.mode === 'multiplayer' && state.gameCode) {
+    console.log('Connection lost, attempting to reconnect...') // --- IGNORE ---
+    useMultiplayerStore.setState({ peerConnected: false, reconnecting: true })
+    const isGuest = new URLSearchParams(window.location.search).has('join')
+    if (isGuest) {
+      console.log('Guest connection lost, attempting to reconnect as guest...') // --- IGNORE ---
+      // Guest must re-establish peer and reconnect to host
+      peer?.destroy()
+      peer = null
+      const code = state.gameCode
+      stopReconnecting()
+      reconnectInterval = setInterval(() => {
+        useMultiplayerStore.getState().joinGame(code)
+      }, 3000)
+      state.joinGame(code)
+    }
+  }
 }
 
 export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
@@ -135,6 +246,7 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
   lobbyPhase: 'joining' as LobbyPhase,
   gameCode: null,
   peerConnected: false,
+  reconnecting: false,
   error: null,
   wins: [0, 0],
   openLobby: (phase: Exclude<LobbyPhase, 'connecting'>) =>
@@ -153,18 +265,19 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
     set({ showLobbyModal: false })
   },
 
-  hostGame: () => {
+  hostGame: (existingCode?: string) => {
     if (peer) {
       peer.destroy()
       peer = null
     }
-    const code = generateCode()
+    const code = existingCode || generateCode()
     set({
       lobbyPhase: 'hosting',
       gameCode: code,
       error: null,
-      wins: [0, 0],
+      ...(existingCode ? {} : { wins: [0, 0] as [number, number] }),
     })
+    setUrlParam('host', code)
 
     peer = new Peer(peerIdFromCode(code), buildPeerConfig())
 
@@ -177,11 +290,26 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
       conn = connection
 
       conn.on('open', () => {
-        const seed = Date.now()
-        conn!.send({ type: 'game-start', seed } satisfies PeerMessage)
-        onGameStartCallback?.(seed, 0) // host is always player 0
+        stopReconnecting()
+        watchConnection(conn!)
+        // If we have a saved game state, resume it instead of starting fresh
+        const saved = loadGameState()
+        const wins = get().wins
+        if (saved && !saved.gameOver) {
+          conn!.send({
+            type: 'game-resume',
+            state: { ...saved, wins },
+          } satisfies PeerMessage)
+          set({ wins: saved.wins })
+          onGameResumeCallback?.(saved, 0) // host is always player 0
+        } else {
+          const seed = Date.now()
+          conn!.send({ type: 'game-start', seed, wins } satisfies PeerMessage)
+          onGameStartCallback?.(seed, 0) // host is always player 0
+        }
         set({
           peerConnected: true,
+          reconnecting: false,
           mode: 'multiplayer',
           showLobbyModal: false,
         })
@@ -191,6 +319,8 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
         const msg = raw as PeerMessage
         if (msg.type === 'move') {
           onRemoteMoveCallback?.(msg.move)
+        } else if (msg.type === 'leave') {
+          remoteLeft = true
         }
       })
 
@@ -201,8 +331,16 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
     peer.on('error', (err) => {
       const msg = (err as Error).message ?? String(err)
       if (msg.includes('unavailable-id')) {
-        // Code collision — retry with a new code
-        get().hostGame()
+        if (existingCode) {
+          // Can't resume with this code — it's taken by someone else
+          set({
+            error: 'Could not reconnect with previous code.',
+            lobbyPhase: 'hosting',
+          })
+        } else {
+          // Code collision — retry with a new code
+          get().hostGame()
+        }
       } else {
         set({ error: `Error: ${msg}`, lobbyPhase: 'joining' })
       }
@@ -214,13 +352,33 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
       peer.destroy()
       peer = null
     }
-    set({ lobbyPhase: 'joining', error: null, wins: [0, 0] })
+    const isReconnecting = get().reconnecting
+    if (!isReconnecting) {
+      set({ lobbyPhase: 'joining', error: null, wins: [0, 0] })
+    }
+    setUrlParam('join', code.toUpperCase())
 
     peer = new Peer(buildPeerConfig())
 
     peer.on('open', () => {
+      console.log('Peer open with ID:', peer!.id)
       set({ lobbyPhase: 'connecting' })
       conn = peer!.connect(peerIdFromCode(code), { reliable: true })
+
+      const joinTimeout = setTimeout(() => {
+        if (!get().peerConnected && !get().reconnecting) {
+          set({
+            error: 'Could not connect. Check the code and try again.',
+            lobbyPhase: 'joining',
+          })
+          handleConnClose()
+        }
+      }, 5000)
+
+      conn.on('open', () => {
+        clearTimeout(joinTimeout)
+        watchConnection(conn!)
+      })
 
       conn.on('data', (raw) => {
         const msg = raw as PeerMessage
@@ -231,25 +389,46 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
             peerConnected: true,
             mode: 'multiplayer',
             showLobbyModal: false,
+            wins: msg.wins,
+          })
+        } else if (msg.type === 'game-resume') {
+          stopReconnecting()
+          onGameResumeCallback?.(msg.state, 1) // guest is always player 1
+          set({
+            gameCode: code.toUpperCase(),
+            peerConnected: true,
+            reconnecting: false,
+            mode: 'multiplayer',
+            showLobbyModal: false,
+            wins: msg.state.wins,
           })
         } else if (msg.type === 'move') {
           onRemoteMoveCallback?.(msg.move)
+        } else if (msg.type === 'leave') {
+          remoteLeft = true
         }
       })
 
       conn.on('close', handleConnClose)
       conn.on('error', () => {
-        set({
-          error: 'Could not connect. Check the code and try again.',
-          lobbyPhase: 'joining',
-        })
-        handleConnClose()
+        if (!get().reconnecting) {
+          set({
+            error: 'Could not connect. Check the code and try again.',
+            lobbyPhase: 'joining',
+          })
+        }
+        // During reconnection, don't fully disconnect — the interval will retry
+        if (!get().reconnecting) handleConnClose()
       })
     })
 
     peer.on('error', (err) => {
+      console.log('Peer error:', err)
       const msg = (err as Error).message ?? String(err)
-      set({ error: `Error: ${msg}`, lobbyPhase: 'joining' })
+      // Suppress errors during reconnection — the interval will retry
+      if (!get().reconnecting) {
+        set({ error: `Error: ${msg}`, lobbyPhase: 'joining' })
+      }
     })
   },
 
@@ -266,22 +445,48 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
   },
 
   startNewGame: () => {
+    clearGameState()
     const seed = Date.now()
-    conn?.send({ type: 'new-game', seed } satisfies PeerMessage)
+    const wins = get().wins
+    conn?.send({ type: 'new-game', seed, wins } satisfies PeerMessage)
     onGameStartCallback?.(seed, 0)
   },
 
   disconnect: () => {
+    stopReconnecting()
+    intentionalDisconnect = true
+    // Clear URL params before closing connection so handleConnClose
+    // won't see ?join and start reconnecting
+    clearUrlParams()
+    clearGameState()
+    conn?.send({ type: 'leave' } satisfies PeerMessage)
     conn?.close()
     peer?.destroy()
     conn = null
     peer = null
+    intentionalDisconnect = false
     set({
       mode: 'ai',
       peerConnected: false,
+      reconnecting: false,
       gameCode: null,
       lobbyPhase: 'joining' as LobbyPhase,
       wins: [0, 0],
     })
+    onDisconnectCallback?.()
   },
 }))
+
+// Auto-connect from URL params on page load
+export function autoConnect() {
+  const params = new URLSearchParams(window.location.search)
+  const hostCode = params.get('host')
+  const joinCode = params.get('join')
+  if (hostCode) {
+    useMultiplayerStore.getState().openLobby('hosting')
+    useMultiplayerStore.getState().hostGame(hostCode)
+  } else if (joinCode) {
+    useMultiplayerStore.getState().openLobby('joining')
+    useMultiplayerStore.getState().joinGame(joinCode)
+  }
+}

@@ -11,6 +11,11 @@ import {
 } from './constants'
 import {
   type MoveData,
+  type SavedGameState,
+  clearGameState,
+  saveGameState,
+  setOnDisconnect,
+  setOnGameResume,
   setOnGameStart,
   setOnRemoteMove,
   useMultiplayerStore,
@@ -36,6 +41,10 @@ export interface GameState {
 interface GameStore extends GameState {
   newGame: () => void
   startMultiplayerGame: (seed: number, localPlayerIndex: 0 | 1) => void
+  restoreMultiplayerGame: (
+    state: SavedGameState,
+    localPlayerIndex: 0 | 1,
+  ) => void
   applyRemoteMove: (move: MoveData) => void
   onMouseDown: (params: MouseParams) => void
   onMouseUp: (params: MouseParams) => void
@@ -114,6 +123,24 @@ export const useGameStore = create<GameStore>((set, get) => {
     newGame,
     startMultiplayerGame: (seed: number, localPlayerIndex: 0 | 1) =>
       startGame(seed, localPlayerIndex),
+    restoreMultiplayerGame: (
+      saved: SavedGameState,
+      localPlayerIndex: 0 | 1,
+    ) => {
+      if (dealTimeout) clearTimeout(dealTimeout)
+      if (aiTurnTimeout) clearTimeout(aiTurnTimeout)
+      set({
+        ...initializeGameState(),
+        cards: saved.cards,
+        localPlayerIndex,
+        dealPhase: -1,
+        currentPlayerIndex: saved.currentPlayerIndex,
+        turnPhase: saved.turnPhase,
+        lastPlayedPileIndex: saved.lastPlayedPileIndex,
+        turnsUntilEnd: saved.turnsUntilEnd,
+        gameOver: saved.gameOver,
+      })
+    },
     applyRemoteMove: (move: MoveData) => {
       const state = get()
       const remotePlayerIndex: 0 | 1 = state.localPlayerIndex === 0 ? 1 : 0
@@ -128,6 +155,9 @@ export const useGameStore = create<GameStore>((set, get) => {
             () => advanceTurnNoDraw(remotePlayerIndex, get, set),
             CARD_TRANSITION_DURATION,
           )
+        } else {
+          // Mark draw phase so persisted state reflects the opponent still needs to draw
+          set({ turnPhase: 1 })
         }
       } else {
         const sourceCard = getCardPile(move.sourcePileIndex, state.cards).at(-1)
@@ -135,7 +165,6 @@ export const useGameStore = create<GameStore>((set, get) => {
         const remoteHandPile =
           remotePlayerIndex === 0 ? 2 + s * 2 + NUM_DISCARD_PILES : 1
         const nextPlayerIndex: 0 | 1 = remotePlayerIndex === 0 ? 1 : 0
-        set({ turnPhase: 0 })
         drawIntoHand(remoteHandPile, sourceCard, nextPlayerIndex, get, set)
         if (useMultiplayerStore.getState().mode === 'multiplayer') {
           navigator.vibrate?.(100)
@@ -165,7 +194,6 @@ export const useGameStore = create<GameStore>((set, get) => {
           sourceCard &&
           sourcePileIndex !== get().lastPlayedPileIndex
         if (isAllowed) {
-          set({ turnPhase: 0 })
           drawIntoHand(playerHandPile, sourceCard, nextPlayerIndex, get, set)
           const { mode } = useMultiplayerStore.getState()
           if (mode === 'multiplayer') {
@@ -422,9 +450,9 @@ const moveCard = (
     // For remote moves, the draw message will arrive separately and drawIntoHand
     // handles the transition — no need to set turnPhase: 1 here.
     if (!isRemote) {
-      setTimeout(() => {
-        const { turnsUntilEnd } = get()
-        if (turnsUntilEnd !== null && turnsUntilEnd <= 4) {
+      const { turnsUntilEnd } = get()
+      if (turnsUntilEnd !== null && turnsUntilEnd <= 4) {
+        setTimeout(() => {
           advanceTurnNoDraw(playerIndex, get, set)
           if (!get().gameOver && playerIndex === 0) {
             const { mode } = useMultiplayerStore.getState()
@@ -435,19 +463,20 @@ const moveCard = (
               )
             }
           }
-        } else {
-          set({ turnPhase: 1 })
-          if (playerIndex === 1) {
-            const { mode } = useMultiplayerStore.getState()
-            if (mode === 'ai') {
-              aiTurnTimeout = setTimeout(
-                () => aiTakeTurn(get, set),
-                CARD_TRANSITION_DURATION,
-              )
-            }
+        }, CARD_TRANSITION_DURATION)
+      } else {
+        // Set draw phase immediately so persisted state is correct on refresh
+        set({ turnPhase: 1 })
+        if (playerIndex === 1) {
+          const { mode } = useMultiplayerStore.getState()
+          if (mode === 'ai') {
+            aiTurnTimeout = setTimeout(
+              () => aiTakeTurn(get, set),
+              CARD_TRANSITION_DURATION,
+            )
           }
         }
-      }, CARD_TRANSITION_DURATION)
+      }
     }
   }
 }
@@ -593,8 +622,8 @@ const isValidPlay = (pile: CardType[], card: CardType): boolean => {
   const pileHasEndCard = pile.some((c) => c.rank === END_CARD_RANK)
   // Once an end card is in the pile, only end cards can be played
   if (pileHasEndCard) return card.rank === END_CARD_RANK
-  // End cards can always be played into a pile that has no end card yet
-  if (card.rank === END_CARD_RANK) return true
+  // End cards can only be played into a pile that already has cards
+  if (card.rank === END_CARD_RANK) return !!topCard
   // Neutral cards: can only be played where the top card has the same rank
   if (card.suit === NEUTRAL_SUIT)
     return topCard !== undefined && card.rank === topCard.rank
@@ -662,3 +691,28 @@ setOnRemoteMove((move) => useGameStore.getState().applyRemoteMove(move))
 setOnGameStart((seed, localPlayerIndex) =>
   useGameStore.getState().startMultiplayerGame(seed, localPlayerIndex),
 )
+setOnGameResume((state, localPlayerIndex) =>
+  useGameStore.getState().restoreMultiplayerGame(state, localPlayerIndex),
+)
+setOnDisconnect(() =>
+  useGameStore.setState({ ...initializeGameState(), cards: [] }),
+)
+// Persist game state to localStorage when the host is in a multiplayer game
+useGameStore.subscribe((state) => {
+  const mp = useMultiplayerStore.getState()
+  if (mp.mode !== 'multiplayer' || state.localPlayerIndex !== 0) return
+  if (state.dealPhase !== -1) return // don't save during deal animation
+  if (state.gameOver) {
+    clearGameState()
+    return
+  }
+  saveGameState({
+    cards: state.cards,
+    currentPlayerIndex: state.currentPlayerIndex,
+    turnPhase: state.turnPhase,
+    lastPlayedPileIndex: state.lastPlayedPileIndex,
+    turnsUntilEnd: state.turnsUntilEnd,
+    gameOver: state.gameOver,
+    wins: mp.wins,
+  })
+})
