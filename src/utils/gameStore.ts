@@ -366,8 +366,20 @@ const moveCard = (
   // Neutral cards can be played into any tableau pile (own or opponent's not applicable —
   // they still go to own tableau, but not restricted to suit. isValidPlay handles rank check.)
   const isNeutral = activeCard.suit === NEUTRAL_SUIT
+  // Prevent starting a second pile for the same suit
+  const suitAlreadyHasPile =
+    !isNeutral &&
+    cardsInTargetPile.length === 0 &&
+    cards.some(
+      (c) =>
+        c.pileIndex >= ownTableauStart &&
+        c.pileIndex <= ownTableauEnd &&
+        c.pileIndex !== pileIndex &&
+        c.suit === activeCard.suit,
+    )
   const isValidTableau =
     pileType === 'tableau' &&
+    !suitAlreadyHasPile &&
     (isNeutral
       ? pileIndex >= ownTableauStart && pileIndex <= ownTableauEnd
       : isOwnTableau) &&
