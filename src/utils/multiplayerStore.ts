@@ -78,6 +78,7 @@ export interface MultiplayerState {
   gameCode: string | null
   peerConnected: boolean
   error: string | null
+  wins: [number, number]
 }
 
 interface MultiplayerStore extends MultiplayerState {
@@ -86,6 +87,7 @@ interface MultiplayerStore extends MultiplayerState {
   hostGame: () => void
   joinGame: (code: string) => void
   startNewGame: () => void
+  recordResult: (iWon: boolean) => void
   sendMove: (move: MoveData) => void
   disconnect: () => void
 }
@@ -134,7 +136,7 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
   gameCode: null,
   peerConnected: false,
   error: null,
-
+  wins: [0, 0],
   openLobby: (phase: Exclude<LobbyPhase, 'connecting'>) =>
     set({
       showLobbyModal: true,
@@ -157,7 +159,12 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
       peer = null
     }
     const code = generateCode()
-    set({ lobbyPhase: 'hosting', gameCode: code, error: null })
+    set({
+      lobbyPhase: 'hosting',
+      gameCode: code,
+      error: null,
+      wins: [0, 0],
+    })
 
     peer = new Peer(peerIdFromCode(code), buildPeerConfig())
 
@@ -207,7 +214,7 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
       peer.destroy()
       peer = null
     }
-    set({ lobbyPhase: 'joining', error: null })
+    set({ lobbyPhase: 'joining', error: null, wins: [0, 0] })
 
     peer = new Peer(buildPeerConfig())
 
@@ -246,6 +253,14 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
     })
   },
 
+  recordResult: (iWon: boolean) => {
+    set((s) => {
+      const wins: [number, number] = [...s.wins]
+      wins[iWon ? 0 : 1]++
+      return { wins }
+    })
+  },
+
   sendMove: (move: MoveData) => {
     conn?.send({ type: 'move', move } satisfies PeerMessage)
   },
@@ -266,6 +281,7 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
       peerConnected: false,
       gameCode: null,
       lobbyPhase: 'joining' as LobbyPhase,
+      wins: [0, 0],
     })
   },
 }))

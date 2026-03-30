@@ -322,6 +322,15 @@ const advanceTurnNoDraw = (
     turnsUntilEnd,
     gameOver,
   })
+  if (gameOver) recordMultiplayerResult(get)
+  const { localPlayerIndex } = get()
+  if (
+    !gameOver &&
+    nextPlayerIndex === localPlayerIndex &&
+    useMultiplayerStore.getState().mode === 'multiplayer'
+  ) {
+    navigator.vibrate?.(60)
+  }
 }
 
 const moveCard = (
@@ -512,9 +521,18 @@ const drawIntoHand = (
     gameOver,
     cards: updatedCards,
   })
+  if (gameOver) recordMultiplayerResult(get)
 }
 
 const PILE_SCORE = [0, -4, -3, -2, 1, 2, 3, 6, 7, 10]
+
+const recordMultiplayerResult = (get: () => GameStore) => {
+  const { recordResult } = useMultiplayerStore.getState()
+  const { cards, localPlayerIndex } = get()
+  const myScore = getScore(localPlayerIndex, cards)
+  const opponentScore = getScore(localPlayerIndex === 0 ? 1 : 0, cards)
+  if (myScore !== opponentScore) recordResult(myScore > opponentScore)
+}
 
 const getPileScore = (length: number): number =>
   PILE_SCORE[Math.min(length, PILE_SCORE.length - 1)]

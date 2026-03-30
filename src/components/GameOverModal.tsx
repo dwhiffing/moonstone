@@ -59,7 +59,13 @@ export const GameOverModal = () => {
       localPlayerIndex: state.localPlayerIndex,
     })),
   )
-  const { mode } = useMultiplayerStore(useShallow((s) => ({ mode: s.mode })))
+  const { mode, wins, disconnect } = useMultiplayerStore(
+    useShallow((s) => ({
+      mode: s.mode,
+      wins: s.wins,
+      disconnect: s.disconnect,
+    })),
+  )
   const isGuest = mode === 'multiplayer' && localPlayerIndex === 1
 
   const myIndex = localPlayerIndex
@@ -96,6 +102,10 @@ export const GameOverModal = () => {
 
         <p className="text-center text-lg font-semibold">{winner}</p>
 
+        <p className="text-center text-2xl font-bold">
+          {wins[0] ?? 0} - {wins[1] ?? 0}
+        </p>
+
         {isGuest ? (
           <p className="text-center text-sm opacity-60">
             Waiting for host to start a new game…
@@ -105,6 +115,14 @@ export const GameOverModal = () => {
             className="w-full py-2 px-4 rounded bg-primary text-white font-bold"
             onClick={newGame}>
             New Game
+          </button>
+        )}
+
+        {mode === 'multiplayer' && (
+          <button
+            className="w-full py-2 px-4 rounded border border-current opacity-60 font-bold"
+            onClick={disconnect}>
+            Leave Game
           </button>
         )}
       </div>
