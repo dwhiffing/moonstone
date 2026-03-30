@@ -6,7 +6,7 @@ import { HamburgerSVG } from './svg'
 export function Header() {
   const newGame = useGameStore((s) => s.newGame)
   const openInstructions = useGameStore((s) => s.openInstructions)
-  const { mode, peerConnected, openLobby, disconnect } = useMultiplayerStore()
+  const { mode, openLobby, disconnect } = useMultiplayerStore()
 
   return (
     <div className="flex justify-between items-center text-white py-2 px-3 lg:p-5 relative z-header pointer-events-none">
@@ -17,14 +17,6 @@ export function Header() {
         <button onClick={openInstructions} title="Instructions">
           ?
         </button>
-      </div>
-
-      <div className="flex-1 flex justify-center pointer-events-auto cursor-pointer">
-        {mode === 'multiplayer' && (
-          <span className="text-xs opacity-60">
-            {peerConnected ? 'Online' : 'Disconnected'}
-          </span>
-        )}
       </div>
 
       <div className="flex-1 flex items-center justify-end gap-2 pointer-events-auto">

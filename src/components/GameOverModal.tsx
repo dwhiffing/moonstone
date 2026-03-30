@@ -111,19 +111,11 @@ export const GameOverModal = () => {
             Waiting for host to start a new game…
           </p>
         ) : (
-          <button
-            className="w-full py-2 px-4 rounded bg-primary text-white font-bold"
-            onClick={newGame}>
-            New Game
-          </button>
+          <button onClick={newGame}>New Game</button>
         )}
 
         {mode === 'multiplayer' && (
-          <button
-            className="w-full py-2 px-4 rounded border border-current opacity-60 font-bold"
-            onClick={disconnect}>
-            Leave Game
-          </button>
+          <button onClick={disconnect}>Leave Game</button>
         )}
       </div>
     </Modal>
