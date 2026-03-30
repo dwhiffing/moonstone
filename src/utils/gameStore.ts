@@ -487,6 +487,21 @@ export const getScore = (playerIndex: 0 | 1, cards: CardType[]): number => {
   ).reduce((a, b) => a + b, 0)
 }
 
+export const getScoreBreakdown = (
+  playerIndex: 0 | 1,
+  cards: CardType[],
+): { suit: Suit; size: number; points: number }[] => {
+  const s = NUM_SUITS
+  const tableauStart = playerIndex === 0 ? 2 + s + NUM_DISCARD_PILES : 2
+  const piles = Array.from({ length: s }, (_, i) =>
+    getCardPile(tableauStart + i, cards),
+  )
+  return Array.from({ length: s }, (_, i) => {
+    const size = piles.find((p) => p[0]?.suit === i)?.length || 0
+    return { suit: i as Suit, size, points: getPileScore(size) }
+  })
+}
+
 const getCardFromPoint = (x: number, y: number, cards: CardType[]) => {
   const elementUnder = document.elementFromPoint(x, y) as HTMLDivElement
 
