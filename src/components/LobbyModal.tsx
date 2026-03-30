@@ -43,7 +43,7 @@ export function LobbyModal() {
               value={inputCode}
               onChange={(e) =>
                 setInputCode(
-                  e.target.value.replace(/[^A-Z]/g, '').toUpperCase(),
+                  e.target.value.toUpperCase().replace(/[^A-Z]/g, ''),
                 )
               }
               onKeyDown={(e) => {
