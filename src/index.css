@@ -92,7 +92,8 @@
   .card,
   .pile,
   .card-front,
-  .card-back {
+  .card-back,
+  .card-disabled-overlay {
     border-radius: calc(var(--base-size) * 0.05);
   }
 
@@ -175,4 +176,11 @@
     inset: calc(var(--base-gap) * 0) calc(var(--base-gap) * 0)
       calc(var(--base-gap) * -20);
   } */
+
+  .card .card-disabled-overlay {
+    @apply absolute inset-0 z-card-overlay flex items-center justify-center pointer-events-none transition-opacity duration-500;
+    font-size: var(--card-disabled-font-size);
+    color: var(--color-overlay);
+    background-color: var(--color-overlay);
+  }
 }
