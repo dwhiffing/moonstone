@@ -79,7 +79,7 @@
   i {
     font-style: italic;
   }
-  button {
+  .button {
     @apply flex justify-center items-center px-2 py-1 lg:py-2 min-w-10 rounded bg-on-surface hover:bg-on-surface-active transition-colors font-bold cursor-pointer;
   }
 

@@ -6,9 +6,6 @@ import { HamburgerSVG } from './svg'
 export function Header() {
   const newGame = useGameStore((s) => s.newGame)
   const openInstructions = useGameStore((s) => s.openInstructions)
-  const inGame = useGameStore(
-    (s) => s.cards.length > 0 && !s.gameOver && s.dealPhase === -1,
-  )
   const { mode, openLobby, disconnect } = useMultiplayerStore()
 
   return (
@@ -17,7 +14,10 @@ export function Header() {
         <span className="text-lg lg:text-2xl whitespace-nowrap font-bold">
           Keltis
         </span>
-        <button onClick={openInstructions} title="Instructions">
+        <button
+          className="button"
+          onClick={openInstructions}
+          title="Instructions">
           ?
         </button>
       </div>

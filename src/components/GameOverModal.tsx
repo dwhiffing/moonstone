@@ -111,11 +111,15 @@ export const GameOverModal = () => {
             Waiting for host to start a new game…
           </p>
         ) : (
-          <button onClick={newGame}>New Game</button>
+          <button className="button" onClick={newGame}>
+            New Game
+          </button>
         )}
 
         {mode === 'multiplayer' && (
-          <button onClick={disconnect}>Leave Game</button>
+          <button className="button" onClick={disconnect}>
+            Leave Game
+          </button>
         )}
       </div>
     </Modal>

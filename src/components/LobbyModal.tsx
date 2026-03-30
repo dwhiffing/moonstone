@@ -47,13 +47,13 @@ export function LobbyModal() {
               Waiting for opponent to join…
             </p>
             <button
-              className="w-full py-2 px-4 rounded bg-primary text-white font-bold"
+              className="button w-full py-2 px-4 rounded bg-primary text-white font-bold"
               onClick={handleShare}
               type="button">
               {copied ? 'Link Copied!' : 'Share Link'}
             </button>
             <button
-              className="w-full py-2 px-4 rounded bg-on-surface text-white"
+              className="button w-full py-2 px-4 rounded bg-on-surface text-white"
               onClick={closeLobby}>
               Cancel
             </button>
@@ -85,13 +85,13 @@ export function LobbyModal() {
               <p className="text-red-400 text-sm text-center">{error}</p>
             )}
             <button
-              className="w-full py-2 px-4 rounded bg-primary text-white font-bold disabled:opacity-40"
+              className="button w-full py-2 px-4 rounded bg-primary text-white font-bold disabled:opacity-40"
               disabled={inputCode.length < 4}
               onClick={() => joinGame(inputCode)}>
               Connect
             </button>
             <button
-              className="w-full py-2 px-4 rounded bg-on-surface text-white"
+              className="button w-full py-2 px-4 rounded bg-on-surface text-white"
               onClick={closeLobby}>
               Cancel
             </button>
@@ -105,7 +105,7 @@ export function LobbyModal() {
               {inputCode}
             </div>
             <button
-              className="w-full py-2 px-4 rounded bg-on-surface text-white"
+              className="button w-full py-2 px-4 rounded bg-on-surface text-white"
               onClick={() => {
                 useMultiplayerStore.setState({
                   lobbyPhase: 'joining',

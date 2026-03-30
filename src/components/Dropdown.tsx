@@ -41,7 +41,7 @@ export function Dropdown({
       key={i}
       disabled={item.disabled}
       className={cn(
-        'w-full px-4 py-2 whitespace-nowrap rounded-none text-right',
+        'button w-full px-4 py-2 whitespace-nowrap rounded-none text-right',
         item.disabled
           ? 'text-white/30 cursor-not-allowed'
           : 'touch:active:bg-on-surface hover:bg-on-surface-active',
@@ -79,7 +79,9 @@ export function Dropdown({
 
   return (
     <div className={cn('relative', className)} ref={ref}>
-      <button className="w-full h-8 lg:h-10" onClick={() => setOpen(!open)}>
+      <button
+        className="button w-full h-8 lg:h-10"
+        onClick={() => setOpen(!open)}>
         {label}
       </button>
 
