@@ -270,6 +270,7 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
       conn = null
     }
     set({ showLobbyModal: false })
+    clearUrlParams()
   },
 
   hostGame: (existingCode?: string) => {
