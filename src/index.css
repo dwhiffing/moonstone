@@ -3,17 +3,15 @@
 @custom-variant touch (@media (pointer: coarse));
 
 @theme {
-  --color-surface: #45a173;
-  --color-on-surface: #3d8e66;
-  --color-on-surface-active: #337956;
+  --color-surface: #9a54ae;
+  --color-card-back: #7a3687;
+  --color-on-surface: #0003;
+  --color-on-surface-active: #0004;
   --color-surface-card: #ebf0ee;
-  --color-surface-pile: #5db187;
-  --color-surface-pile-border: #7ebf9f;
-  --color-on-surface-pile: #8ac6a8;
-  --color-heart: #e74c3c;
+  --color-surface-pile: #0002;
+  --color-surface-pile-border: #0002;
   --color-overlay: rgb(0 0 0 / 0.27);
   --color-backdrop: rgb(0 0 0 / 0.2);
-  --color-option-bg: #1f2937;
 
   --z-index-header: 999;
   --z-index-modal: 10000;
@@ -121,7 +119,7 @@
   }
 
   .card .card-back {
-    @apply absolute inset-0 z-card-back bg-surface-card opacity-0 transition-opacity duration-500 text-heart;
+    @apply absolute inset-0 z-card-back bg-surface-card opacity-0 transition-opacity duration-500 text-card-back;
     padding: var(--card-back-padding);
   }
 
@@ -181,7 +179,7 @@
   }
   .pile.deck p {
     font-size: calc(var(--base-size) * 0.3);
-    -webkit-text-stroke: calc(var(--base-size) * 0.08) #e74c3c;
+    -webkit-text-stroke: calc(var(--base-size) * 0.08) var(--color-card-back);
     paint-order: stroke fill;
     @apply visible;
     pointer-events: none;
