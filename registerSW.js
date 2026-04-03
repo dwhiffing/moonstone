@@ -1,1 +1,1 @@
-if('serviceWorker' in navigator) {window.addEventListener('load', () => {navigator.serviceWorker.register('/keltis-2026/sw.js', { scope: '/keltis-2026/' })})}
+if('serviceWorker' in navigator) {window.addEventListener('load', () => {navigator.serviceWorker.register('/moonstone/sw.js', { scope: '/moonstone/' })})}
