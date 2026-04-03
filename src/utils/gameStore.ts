@@ -96,7 +96,7 @@ export const useGameStore = create<GameStore>((set, get) => {
         () => {
           set({ dealPhase: -1, cards: sortHandCards(get().cards) })
         },
-        (CARD_TRANSITION_DURATION / 5) * (HAND_SIZE * 2 + 1) + 100,
+        (CARD_TRANSITION_DURATION / 5) * (HAND_SIZE * 2 + 1) + 200,
       )
     }, 500)
   }
