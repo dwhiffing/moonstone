@@ -17,15 +17,15 @@ export default defineConfig({
         'Roboto-Italic.ttf',
       ],
       manifest: {
-        name: 'Keltis',
-        short_name: 'Keltis',
-        description: 'Keltis',
+        name: 'Moonstone',
+        short_name: 'Moonstone',
+        description: 'Moonstone',
         theme_color: '#9a54ae',
         background_color: '#9a54ae',
         display: 'fullscreen',
         orientation: 'portrait',
-        start_url: '/keltis-2026/?fullscreen=true',
-        scope: '/keltis-2026/',
+        start_url: '/moonstone/?fullscreen=true',
+        scope: '/moonstone/',
         icons: [
           {
             src: 'pwa-192x192.png',
@@ -50,5 +50,5 @@ export default defineConfig({
       },
     }),
   ],
-  base: '/keltis-2026/',
+  base: '/moonstone/',
 })

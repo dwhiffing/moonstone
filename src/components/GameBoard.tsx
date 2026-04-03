@@ -7,6 +7,7 @@ import { useMultiplayerStore } from '../utils/multiplayerStore'
 import Card from './Card'
 import { GameOverModal } from './GameOverModal'
 import { Header } from './Header'
+import { InstructionsModal } from './InstructionsModal'
 import { LobbyModal } from './LobbyModal'
 import { Pile } from './Pile'
 import { WishingStonePile } from './WishingStonePile'
@@ -131,7 +132,7 @@ function App() {
         </button>
       </div>
 
-      {/* <InstructionsModal /> */}
+      <InstructionsModal />
       <GameOverModal />
       <LobbyModal key={showLobbyModal ? 'show' : 'hide'} />
     </div>

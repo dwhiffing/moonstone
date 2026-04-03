@@ -4,30 +4,12 @@ import { Modal } from './Modal'
 
 const INSTRUCTION_PAGES = [
   {
-    title: 'Welcome to Keltis',
+    title: 'Welcome to Moonstone!',
     content: (
       <>
-        The goal of the game is to move the cards from the{' '}
-        <b className="whitespace-nowrap">bottom piles</b> <i>(tableau)</i> to
-        the <b>top piles</b> <i>(foundation)</i>, sorted by <b>suit</b> and{' '}
-        <b>rank</b>
-        .
-        <br />
-        <br />
-        You may only move <b>exposed cards</b>, and only <b>one at a time</b>.
-      </>
-    ),
-  },
-  {
-    title: 'Tips',
-    content: (
-      <>
-        You may <b>double click</b> a card to <b>move it</b> to a{' '}
-        <b>foundation pile</b>, assuming a valid pile is available.
-        <br />
-        <br />
-        If you move a card that is part of a <b>suited run</b>, the rest of the
-        cards will be <b>moved automatically</b>.
+        The goal of the game is to build the largest suited piles you can for
+        points. Use pairs to claim moonstones for bonus points. The player with
+        the highest score wins!
       </>
     ),
   },
