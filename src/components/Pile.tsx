@@ -11,6 +11,7 @@ export const Pile = ({
   const state = useGameStore(
     useShallow((state) => ({
       deckCount: state.cards.filter((c) => c.pileIndex === 0).length,
+      showDeckCount: state.dealPhase === -1,
     })),
   )
   return (
@@ -21,7 +22,7 @@ export const Pile = ({
       data-piletype={pileType}>
       {pileType === 'deck' && (
         <p
-          className={`relative z-1000 text-white font-bold ${state.deckCount === 0 ? 'opacity-0' : ''} transition-opacity`}>
+          className={`relative z-1000 text-white font-bold ${state.deckCount === 0 || !state.showDeckCount ? 'opacity-0' : ''} transition-opacity`}>
           {state.deckCount}
         </p>
       )}
