@@ -5,11 +5,11 @@
 @theme {
   --color-surface: #9a54ae;
   --color-card-back: #7a3687;
-  --color-on-surface: #0003;
-  --color-on-surface-active: #0004;
+  --color-on-surface: #844496;
+  --color-on-surface-active: #713881;
   --color-surface-card: #ebf0ee;
-  --color-surface-pile: #0002;
-  --color-surface-pile-border: #0002;
+  --color-surface-pile: #844495;
+  --color-surface-pile-border: #844495;
   --color-overlay: rgb(0 0 0 / 0.27);
   --color-backdrop: rgb(0 0 0 / 0.2);
 
