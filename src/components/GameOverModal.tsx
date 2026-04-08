@@ -117,7 +117,7 @@ export const GameOverModal = () => {
         <p className="text-center text-lg font-semibold">{winner}</p>
 
         <p className="text-center text-2xl font-bold">
-          {wins[0] ?? 0} - {wins[1] ?? 0}
+          {wins[myIndex] ?? 0} - {wins[opponentIndex] ?? 0}
         </p>
 
         {isGuest ? (

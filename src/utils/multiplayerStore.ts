@@ -121,7 +121,7 @@ interface MultiplayerStore extends MultiplayerState {
   hostGame: (code?: string) => void
   joinGame: (code: string) => void
   startNewGame: (gameLength?: GameLength) => void
-  recordResult: (iWon: boolean) => void
+  recordResult: (winnerIndex: 0 | 1) => void
   sendMove: (move: MoveData) => void
   disconnect: () => void
 }
@@ -455,10 +455,10 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
     })
   },
 
-  recordResult: (iWon: boolean) => {
+  recordResult: (winnerIndex: 0 | 1) => {
     set((s) => {
       const wins: [number, number] = [...s.wins]
-      wins[iWon ? 0 : 1]++
+      wins[winnerIndex]++
       return { wins }
     })
   },

@@ -680,7 +680,10 @@ const recordMultiplayerResult = (get: () => GameStore) => {
   const { cards, localPlayerIndex, stones } = get()
   const myScore = getScore(localPlayerIndex, cards, stones)
   const opponentScore = getScore(localPlayerIndex === 0 ? 1 : 0, cards, stones)
-  if (myScore !== opponentScore) recordResult(myScore > opponentScore)
+  if (myScore === opponentScore) return
+  const winnerIndex: 0 | 1 =
+    myScore > opponentScore ? localPlayerIndex : localPlayerIndex === 0 ? 1 : 0
+  recordResult(winnerIndex)
 }
 
 export const getScore = (
