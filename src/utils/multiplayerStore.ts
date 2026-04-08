@@ -2,6 +2,11 @@ import Peer, { type DataConnection, type PeerOptions } from 'peerjs'
 import { create } from 'zustand'
 
 const STORAGE_KEY = 'moonstone-mp-state'
+const DEBUG_KEY = 'moonstone-network-debug-visible'
+
+function getDebugPanelInitialState(): boolean {
+  return localStorage.getItem(DEBUG_KEY) === '1'
+}
 
 function readTurnConfig() {
   return {
@@ -18,6 +23,52 @@ function getTurnConfigError(): string | null {
     return 'Partial TURN configuration: set VITE_TURN_USERNAME and VITE_TURN_CREDENTIAL to enable TURN relay.'
   }
   return null
+}
+
+const MAX_DEBUG_LINES = 50
+let networkDebugSink: ((line: string) => void) | null = null
+
+function pushNetworkDebug(line: string) {
+  networkDebugSink?.(`[${new Date().toLocaleTimeString()}] ${line}`)
+}
+type ConnectionType = { candidateType?: string; protocol?: string } | undefined
+async function logSelectedCandidatePair(pc: RTCPeerConnection): Promise<void> {
+  try {
+    const stats = await pc.getStats()
+    let pair: RTCIceCandidatePairStats | undefined
+
+    stats.forEach((stat) => {
+      if (stat.type === 'transport' && stat.selectedCandidatePairId) {
+        pair = stats.get(stat.selectedCandidatePairId)
+      }
+    })
+
+    if (!pair) {
+      stats.forEach((stat) => {
+        if (stat.type === 'candidate-pair' && stat.state === 'succeeded') {
+          pair = stat
+        }
+      })
+    }
+
+    if (!pair || pair.type !== 'candidate-pair') {
+      return pushNetworkDebug('ICE selected path not available yet')
+    }
+
+    const local = stats.get(pair.localCandidateId) as ConnectionType
+    const remote = stats.get(pair.remoteCandidateId) as ConnectionType
+    const localType = local?.candidateType ?? 'unknown'
+    const remoteType = remote?.candidateType ?? 'unknown'
+    const protocol = local?.protocol ?? 'unknown'
+    const relay = localType === 'relay' || remoteType === 'relay'
+
+    pushNetworkDebug(
+      `ICE path: ${localType}<->${remoteType} via ${protocol}${relay ? ' (TURN)' : ' (direct)'}`,
+    )
+  } catch (err) {
+    const msg = (err as Error).message ?? String(err)
+    pushNetworkDebug(`Could not read ICE stats: ${msg}`)
+  }
 }
 
 function buildPeerConfig(): PeerOptions {
@@ -113,6 +164,8 @@ export interface MultiplayerState {
   reconnecting: boolean
   error: string | null
   wins: [number, number]
+  showNetworkDebug: boolean
+  networkDebugLines: string[]
 }
 
 interface MultiplayerStore extends MultiplayerState {
@@ -124,6 +177,8 @@ interface MultiplayerStore extends MultiplayerState {
   recordResult: (winnerIndex: 0 | 1) => void
   sendMove: (move: MoveData) => void
   disconnect: () => void
+  toggleNetworkDebug: () => void
+  checkNetworkPath: () => void
 }
 
 // Module-level PeerJS instances (not in Zustand to avoid serialization issues)
@@ -147,7 +202,20 @@ let reconnectInterval: number | null = null
 
 function watchConnection(c: DataConnection) {
   const pc = c.peerConnection
+  pushNetworkDebug('Peer connection created')
+  let lastIceState: RTCIceConnectionState | null = null
+
   pc.oniceconnectionstatechange = () => {
+    if (pc.iceConnectionState !== lastIceState) {
+      lastIceState = pc.iceConnectionState
+      pushNetworkDebug(`ICE state: ${pc.iceConnectionState}`)
+    }
+    if (
+      pc.iceConnectionState === 'connected' ||
+      pc.iceConnectionState === 'completed'
+    ) {
+      void logSelectedCandidatePair(pc)
+    }
     if (
       pc.iceConnectionState === 'disconnected' ||
       pc.iceConnectionState === 'failed'
@@ -273,6 +341,8 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
   reconnecting: false,
   error: null,
   wins: [0, 0],
+  showNetworkDebug: getDebugPanelInitialState(),
+  networkDebugLines: [],
   openLobby: (phase: Exclude<LobbyPhase, 'connecting'>) =>
     set({
       showLobbyModal: true,
@@ -305,6 +375,7 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
     setUrlParam('host', code)
 
     peer = new Peer(peerIdFromCode(code), buildPeerConfig())
+    pushNetworkDebug(`Hosting with code ${code.toUpperCase()}`)
 
     peer.on('connection', (connection) => {
       // Only accept one connection
@@ -313,8 +384,10 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
         return
       }
       conn = connection
+      pushNetworkDebug('Incoming connection attempt received')
 
       conn.on('open', () => {
+        pushNetworkDebug('Connection open (host)')
         stopReconnecting()
         watchConnection(conn!)
         // If we have a saved game state, resume it instead of starting fresh
@@ -366,6 +439,7 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
         }
       } else {
         set({ error: `Error: ${msg}`, lobbyPhase: 'joining' })
+        pushNetworkDebug(`Host peer error: ${msg}`)
       }
     })
   },
@@ -382,6 +456,7 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
     setUrlParam('join', code.toUpperCase())
 
     peer = new Peer(buildPeerConfig())
+    pushNetworkDebug(`Joining code ${code.toUpperCase()}`)
 
     peer.on('open', () => {
       console.log('Peer open with ID:', peer!.id)
@@ -394,12 +469,14 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
             error: 'Could not connect. Check the code and try again.',
             lobbyPhase: 'joining',
           })
+          pushNetworkDebug('Join attempt timed out')
           handleConnClose()
         }
       }, 5000)
 
       conn.on('open', () => {
         clearTimeout(joinTimeout)
+        pushNetworkDebug('Connection open (guest)')
         watchConnection(conn!)
       })
 
@@ -433,12 +510,14 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
       })
 
       conn.on('close', handleConnClose)
-      conn.on('error', () => {
+      conn.on('error', (err) => {
         if (!get().reconnecting) {
           set({
             error: 'Could not connect. Check the code and try again.',
             lobbyPhase: 'joining',
           })
+          const msg = (err as Error).message ?? String(err)
+          pushNetworkDebug(`Join connection error: ${msg}`)
         }
         // During reconnection, don't fully disconnect — the interval will retry
         if (!get().reconnecting) handleConnClose()
@@ -451,6 +530,7 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
       // Suppress errors during reconnection — the interval will retry
       if (!get().reconnecting) {
         set({ error: `Error: ${msg}`, lobbyPhase: 'joining' })
+        pushNetworkDebug(`Guest peer error: ${msg}`)
       }
     })
   },
@@ -503,7 +583,25 @@ export const useMultiplayerStore = create<MultiplayerStore>((set, get) => ({
     })
     onDisconnectCallback?.()
   },
+
+  toggleNetworkDebug: () =>
+    set((s) => {
+      localStorage.setItem(DEBUG_KEY, !s.showNetworkDebug ? '1' : '0')
+      return { showNetworkDebug: !s.showNetworkDebug }
+    }),
+
+  checkNetworkPath: () => {
+    if (!conn?.peerConnection)
+      return pushNetworkDebug('No active peer connection to inspect')
+    void logSelectedCandidatePair(conn.peerConnection)
+  },
 }))
+
+networkDebugSink = (line) => {
+  useMultiplayerStore.setState((s) => ({
+    networkDebugLines: [...s.networkDebugLines, line].slice(-MAX_DEBUG_LINES),
+  }))
+}
 
 // Auto-connect from URL params on page load
 export function autoConnect() {

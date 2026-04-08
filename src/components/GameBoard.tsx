@@ -10,6 +10,7 @@ import { GameOverModal } from './GameOverModal'
 import { Header } from './Header'
 import { InstructionsModal } from './InstructionsModal'
 import { LobbyModal } from './LobbyModal'
+import { NetworkDebugPanel } from './NetworkDebugPanel'
 import { Pile } from './Pile'
 import { WishingStonePile } from './WishingStonePile'
 
@@ -137,6 +138,7 @@ function App() {
       <GameLengthModal />
       <GameOverModal />
       <LobbyModal key={showLobbyModal ? 'show' : 'hide'} />
+      <NetworkDebugPanel />
     </div>
   )
 }
