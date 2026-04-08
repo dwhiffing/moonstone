@@ -27,7 +27,7 @@ function buildPeerConfig(): PeerOptions {
     { urls: 'stun:stun1.l.google.com:19302' },
   ]
 
-  // Only add TURN if explicitly configured via env vars
+  // Add TURN whenever configured; ICE will still prefer direct paths when possible
   const { turnUsername, turnCredential } = readTurnConfig()
   if (!getTurnConfigError() && turnUsername && turnCredential) {
     iceServers.push(
@@ -36,21 +36,21 @@ function buildPeerConfig(): PeerOptions {
         username: turnUsername,
         credential: turnCredential,
       },
-      // {
-      //   urls: 'turn:global.relay.metered.ca:80?transport=tcp',
-      //   username: turnUsername,
-      //   credential: turnCredential,
-      // },
-      // {
-      //   urls: 'turn:global.relay.metered.ca:443',
-      //   username: turnUsername,
-      //   credential: turnCredential,
-      // },
-      // {
-      //   urls: 'turns:global.relay.metered.ca:443?transport=tcp',
-      //   username: turnUsername,
-      //   credential: turnCredential,
-      // },
+      {
+        urls: 'turn:global.relay.metered.ca:80?transport=tcp',
+        username: turnUsername,
+        credential: turnCredential,
+      },
+      {
+        urls: 'turn:global.relay.metered.ca:443',
+        username: turnUsername,
+        credential: turnCredential,
+      },
+      {
+        urls: 'turns:global.relay.metered.ca:443?transport=tcp',
+        username: turnUsername,
+        credential: turnCredential,
+      },
     )
   }
 
