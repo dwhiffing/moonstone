@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { type MouseEvent, useState } from 'react'
 import { useGameStore } from '../utils/gameStore'
 import { Modal } from './Modal'
 
@@ -20,7 +20,7 @@ const ScoringTable = ({
       className={`rounded border border-white/20 overflow-hidden text-sm lg:text-base ${showRowLabels ? 'grid grid-cols-[auto_1fr]' : ''}`}>
       {showRowLabels ? (
         <>
-          <div className="w-24 px-3 py-1 bg-white/5 border-r border-white/20 font-semibold">
+          <div className="w-30 px-3 py-1 bg-white/5 border-r border-white/20 font-semibold">
             {topRowLabel ?? ''}
           </div>
           <div
@@ -37,7 +37,7 @@ const ScoringTable = ({
               </div>
             ))}
           </div>
-          <div className="w-24 px-3 py-1 border-r border-t border-white/20 font-semibold">
+          <div className="w-30 px-3 py-1 border-r border-t border-white/20 font-semibold">
             {bottomRowLabel ?? ''}
           </div>
           <div
@@ -106,16 +106,6 @@ const INSTRUCTION_PAGES = [
             The game ends when the <b>deck is empty</b>, each player plays{' '}
             <b>2 final cards</b>.
           </p>
-          <p>
-            There are <b>5 suits</b> ranked <b>0-10</b> or <b>X</b>: one each of{' '}
-            <b>0</b>/<b>1</b>/<b>2</b> and <b>8</b>/<b>9</b>/<b>10</b>, two each
-            of <b>3</b>/<b>4</b>/<b>5</b>/<b>6</b>/<b>7</b>/<b>X</b>. There are
-            also <b>11 wild cards</b> ranked <b>0-10</b>.
-          </p>
-          <p>
-            <b>30</b> of the <b>101</b> cards are removed before dealing{' '}
-            <b>8 cards</b> to each player
-          </p>
         </div>
       </>
     ),
@@ -152,15 +142,14 @@ const INSTRUCTION_PAGES = [
             </li>
           </ul>
           <p>
-            Or play into one of the <b>4 discard piles</b> next to the deck.
+            Or play on one of <b>4 discard piles</b> next to the deck.
           </p>
         </div>
-        <div className="flex flex-col gap-1 mt-3">
+        <div className="flex flex-col gap-1 mt-3 md:mt-5">
           <h2 className="text-2xl font-bold mb-1">Draw a card</h2>
           <p>
-            Either draw from the <b>deck</b>, or draw from one of the{' '}
-            <b>4 discard piles</b>. You cannot draw a card you{' '}
-            <b>discarded this turn</b>.
+            Draw from the <b>deck</b>, or draw from a <b>discard pile</b>. You
+            cannot draw a card you <b>discarded this turn</b>.
           </p>
         </div>
       </>
@@ -187,7 +176,7 @@ const INSTRUCTION_PAGES = [
           </li>
         </ul>
         <div>
-          <h2 className="text-2xl font-bold mt-3 mb-1">End cards</h2>
+          <h2 className="text-2xl font-bold mt-3 md:mt-5 mb-1">End cards</h2>
           <p>
             <b>End cards</b> are <b>rank X</b>. Only <b>another end card</b> can
             be played on top.
@@ -204,15 +193,47 @@ const INSTRUCTION_PAGES = [
           </ul>
         </div>
 
-        <div className="flex flex-col mt-3">
+        <div className="flex flex-col mt-3 md:mt-5">
           <h2 className="text-2xl font-bold mb-1">Moonstones</h2>
           <p>
-            If you have <b>2 cards of equal rank</b> and the{' '}
-            <b>moonstone is unclaimed</b>, <b>tap it</b> to claim it. Then{' '}
-            <b>discard both cards</b> and <b>draw 2 new cards</b>.
+            If you have <b>2 cards</b> of <b>equal rank</b>, claim a moonstone
+            by <b>tapping it</b>.
+          </p>
+          <p>
+            Then <b>discard both cards</b> and <b>draw 2 new cards</b>.
           </p>
         </div>
       </>
+    ),
+  },
+  {
+    title: 'Deck composition',
+    content: (
+      <div className="flex flex-col gap-4">
+        <div>
+          <p>
+            There are <b>5 suits</b> with <b>18 cards</b> each:
+          </p>
+          <ul>
+            <li>
+              <b>One</b> each of <b>0,1,2</b> and <b>8,9,10</b>
+            </li>
+            <li>
+              <b>Two</b> each of <b>3,4,5,6,7</b>
+            </li>
+            <li>
+              <b>Two</b> each of special <b>end cards</b>.
+            </li>
+          </ul>
+        </div>
+        <p>
+          Also, there are <b>11 wild cards</b> ranked <b>0-10</b>.
+        </p>
+        <p>
+          <b>30</b> of the <b>101</b> cards are removed before dealing{' '}
+          <b>8 cards</b> to each player
+        </p>
+      </div>
     ),
   },
   {
@@ -269,11 +290,25 @@ export const InstructionsModal = () => {
     closeInstructions()
   }
 
+  const handleModalClick = (e: MouseEvent<HTMLDivElement>) => {
+    const { left, width } = e.currentTarget.getBoundingClientRect()
+    const clickedLeftHalf = e.clientX - left < width / 2
+
+    if (clickedLeftHalf) {
+      handlePrev()
+      return
+    }
+
+    handleNext()
+  }
+
   return (
     <Modal show={showInstructionsModal} onClose={handleClose}>
-      <div className="flex flex-col justify-between bg-surface rounded-lg shadow-xl w-[calc(100vw-40px)] min-w-90 max-w-125 min-h-110 md:min-h-94 p-4 lg:p-6">
+      <div
+        className={`flex flex-col justify-between bg-surface rounded-lg shadow-xl w-[calc(100vw-40px)] min-w-90 max-w-140 p-4 lg:p-6 ${currentPage === 0 ? '' : 'min-h-115'}`}
+        onClick={handleModalClick}>
         <div className="flex-1">
-          <h2 className="text-2xl lg:text-3xl font-bold mb-1">
+          <h2 className="text-2xl font-bold mb-1">
             {INSTRUCTION_PAGES[currentPage].title}
           </h2>
           <div className="text-base lg:text-lg leading-relaxed whitespace-pre-line">
@@ -301,7 +336,12 @@ export const InstructionsModal = () => {
             ))}
           </div>
 
-          <button className="button" onClick={handleNext}>
+          <button
+            className="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              handleNext()
+            }}>
             {currentPage === INSTRUCTION_PAGES.length - 1 ? 'Play' : 'Next'}
           </button>
         </div>
